@@ -1,7 +1,7 @@
-from music21 import converter
+from music21 import converter, tempo, meter
 
 
-def load_score(file_path: str):
+def load_score(file_path):
     return converter.parse(file_path)
 
 
@@ -11,8 +11,20 @@ def analyze_score(score):
     except Exception:
         key = "Unknown"
 
+    time_signatures = score.recurse().getElementsByClass(
+        meter.TimeSignature
+    )
+    tempos = score.recurse().getElementsByClass(
+        tempo.MetronomeMark
+    )
+
     return {
         "key": key,
+        "time_signature": (
+            str(time_signatures[0]) if time_signatures else "Unknown"
+        ),
+        "tempo": (
+            str(tempos[0].number) if tempos else "Unknown"
+        ),
         "parts": len(score.parts),
-        "notes": len(list(score.recurse().notes)),
     }

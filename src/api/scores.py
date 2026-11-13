@@ -1,40 +1,73 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from services.score_renderer import render_musicxml
+import tempfile
 from pathlib import Path
+
+from fastapi import APIRouter, UploadFile, File, HTTPException
+
+from services.music_service import (
+    load_score,
+    analyze_score,
+)
+from services.score_renderer import render_musicxml
 
 router = APIRouter()
 
+MAX_FILE_SIZE = 15 * 1024 * 1024
+MUSICXML_EXTENSIONS = {".musicxml", ".xml"}
 
-@router.post("/scores/render")
-async def render_score(file: UploadFile = File(...)):
-    filename = file.filename or ""
-    extension = Path(filename).suffix.lower()
 
-    if extension not in {".musicxml", ".xml"}:
-        raise HTTPException(
-            status_code=400,
-            detail="Only MusicXML files (.musicxml, .xml) are supported"
-        )
+async def read_musicxml(file: UploadFile) -> bytes:
+    extension = Path(file.filename or "").suffix.lower()
+
+    if extension not in MUSICXML_EXTENSIONS:
+        raise HTTPException(400, "Only MusicXML files are supported")
 
     content = await file.read()
 
     if not content:
-        raise HTTPException(status_code=400, detail="Empty file")
+        raise HTTPException(400, "Empty file")
 
-    if len(content) > 15 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large")
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(413, "File too large (15 MB max)")
+
+    return content
+
+
+@router.post("/scores/render")
+async def render_score(file: UploadFile = File(...)):
+    content = await read_musicxml(file)
 
     try:
-        pages = render_musicxml(content)
+        pages, midi_base64 = render_musicxml(content)
+
         return {
-            "filename": filename,
+            "filename": file.filename,
             "page_count": len(pages),
-            "pages": pages
+            "pages": pages,
+            "midi_base64": midi_base64,
         }
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error))
+        raise HTTPException(400, str(error))
     except Exception:
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to render score"
-        )
+        raise HTTPException(500, "Failed to render score")
+
+
+@router.post("/scores/analyze")
+async def analyze_uploaded_score(file: UploadFile = File(...)):
+    content = await read_musicxml(file)
+    extension = Path(file.filename or "").suffix.lower()
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix=extension) as temp:
+            temp.write(content)
+            temp.flush()
+
+            score = load_score(temp.name)
+            result = analyze_score(score)
+
+        return {
+            "filename": file.filename,
+            **result,
+        }
+
+    except Exception:
+        raise HTTPException(400, "Failed to analyze score")

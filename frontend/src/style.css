@@ -22,7 +22,7 @@ header {
 }
 
 .viewer {
-    padding: 0 24px 24px;
+    padding: 0 12px 12px;
 }
 
 .toolbar {
@@ -43,10 +43,14 @@ header {
 
 .viewer-content {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 260px;
+    grid-template-columns: minmax(0, 1fr) 240px;
     gap: 16px;
     margin-top: 16px;
     align-items: start;
+}
+
+.viewer-content.inspector-hidden {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .score-container {
@@ -96,6 +100,11 @@ header {
 
 .error {
     color: red;
+}
+
+.playback-error {
+    color: #b91c1c;
+    font-size: 0.875rem;
 }
 
 @media (max-width: 800px) {

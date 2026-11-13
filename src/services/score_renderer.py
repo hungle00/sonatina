@@ -1,7 +1,7 @@
 import verovio
 
 
-def render_musicxml(content: bytes) -> list[str]:
+def render_musicxml(content: bytes) -> tuple[list[str], str]:
     xml = content.decode("utf-8-sig")
 
     toolkit = verovio.toolkit()
@@ -19,7 +19,8 @@ def render_musicxml(content: bytes) -> list[str]:
     if not toolkit.loadData(xml):
         raise ValueError("Invalid MusicXML file")
 
-    return [
+    pages = [
         toolkit.renderToSVG(page)
         for page in range(1, toolkit.getPageCount() + 1)
     ]
+    return pages, toolkit.renderToMIDI()
