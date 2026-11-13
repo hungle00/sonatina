@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Music Toolkit - Score Viewer</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f5f5f5;
+        }
+
+        header {
+            padding: 20px;
+            background: #222;
+            color: white;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 16px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        #score {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .score-page {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 2px 8px #0001;
+            overflow-x: auto;
+        }
+
+        .score-page img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        #status {
+            margin: 12px 0;
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h2>Music Toolkit</h2>
+    </header>
+
+    <main>
+        <div class="toolbar">
+            <input
+                type="file"
+                id="fileInput"
+                accept=".musicxml,.xml"
+            >
+
+            <button id="uploadButton">Render Score</button>
+        </div>
+
+        <div id="status"></div>
+        <div id="score"></div>
+    </main>
+
+    <script>
+        const fileInput = document.getElementById("fileInput");
+        const uploadButton = document.getElementById("uploadButton");
+        const status = document.getElementById("status");
+        const scoreContainer = document.getElementById("score");
+
+        let currentUrls = [];
+
+        function clearScore() {
+            currentUrls.forEach(url => URL.revokeObjectURL(url));
+            currentUrls = [];
+            scoreContainer.replaceChildren();
+        }
+
+        uploadButton.addEventListener("click", async () => {
+            const file = fileInput.files[0];
+
+            if (!file) {
+                status.textContent = "Please select a MusicXML file.";
+                return;
+            }
+
+            clearScore();
+            status.textContent = "Rendering score...";
+            uploadButton.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append("file", file);
+
+                const response = await fetch("/api/scores/render", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.detail || "Rendering failed");
+                }
+
+                result.pages.forEach((svg, index) => {
+                    const page = document.createElement("div");
+                    page.className = "score-page";
+
+                    const image = document.createElement("img");
+                    image.alt = `Score page ${index + 1}`;
+
+                    const blob = new Blob(
+                        [svg],
+                        { type: "image/svg+xml" }
+                    );
+
+                    const url = URL.createObjectURL(blob);
+                    currentUrls.push(url);
+
+                    image.src = url;
+
+                    page.appendChild(image);
+                    scoreContainer.appendChild(page);
+                });
+
+                status.textContent =
+                    `${result.filename} — ${result.page_count} page(s)`;
+            } catch (error) {
+                status.textContent = error.message;
+            } finally {
+                uploadButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

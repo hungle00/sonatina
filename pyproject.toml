@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "music-toolkit"
+version = "0.1.0"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "music21",
+    "verovio",
+    "python-multipart",
+    "typer"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
