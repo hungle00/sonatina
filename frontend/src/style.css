@@ -28,6 +28,7 @@ header {
 .toolbar {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     padding: 12px;
     background: white;
@@ -60,6 +61,11 @@ header {
     padding: 20px;
 }
 
+.score-page {
+    position: relative;
+    margin: auto;
+}
+
 .score-svg {
     margin: auto;
     background: white;
@@ -70,6 +76,24 @@ header {
     display: block;
     width: 100%;
     height: auto;
+}
+
+.playback-cursor {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e11d48;
+    box-shadow: 0 0 3px rgb(225 29 72 / 65%);
+    pointer-events: none;
+}
+
+.tempo-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
 }
 
 .score-svg g.note {

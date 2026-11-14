@@ -168,6 +168,7 @@ export default function App() {
                         <ScoreViewer
                             pages={score.pages}
                             midiBase64={score.midi_base64}
+                            timeline={score.timeline}
                         />
                     </section>
                 )}

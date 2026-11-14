@@ -37,13 +37,14 @@ async def render_score(file: UploadFile = File(...)):
     content = await read_musicxml(file)
 
     try:
-        pages, midi_base64 = render_musicxml(content)
+        pages, midi_base64, timeline = render_musicxml(content)
 
         return {
             "filename": file.filename,
             "page_count": len(pages),
             "pages": pages,
             "midi_base64": midi_base64,
+            "timeline": timeline,
         }
     except ValueError as error:
         raise HTTPException(400, str(error))
