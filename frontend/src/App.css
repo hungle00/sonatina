@@ -37,6 +37,82 @@
     margin-bottom: 8px;
 }
 
+.workspace > p {
+    margin-bottom: 12px;
+}
+
+.projects-section {
+    max-width: 760px;
+    margin: 28px auto;
+    text-align: left;
+}
+
+.project-list {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.project-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    padding: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    color: #334155;
+    cursor: pointer;
+    text-align: left;
+}
+
+.project-list-item:hover {
+    border-color: #818cf8;
+}
+
+.project-list-item > span:first-child,
+.current-project {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.project-list-item small,
+.current-project small {
+    overflow: hidden;
+    color: #64748b;
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-revision {
+    flex: none;
+    color: #64748b;
+    font-size: 0.8rem;
+}
+
+.current-project {
+    flex: 1;
+}
+
+.project-actions {
+    display: flex;
+    flex: none;
+    gap: 8px;
+}
+
+.project-status {
+    max-width: 760px;
+    margin: 20px auto;
+    text-align: left;
+}
+
 .current-file {
     flex: 1;
     min-width: 0;
@@ -55,6 +131,7 @@
     color: #334155;
     cursor: pointer;
     font-size: 0.8rem;
+    text-decoration: none;
 }
 
 .process-button {
@@ -140,5 +217,19 @@
     .app-header {
         height: 46px;
         padding: 0 12px;
+    }
+
+    .workspace-compact {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .project-actions {
+        width: 100%;
+    }
+
+    .project-list-item {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }

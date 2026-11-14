@@ -16,10 +16,43 @@ async function uploadScore(endpoint, file) {
     return result;
 }
 
+async function requestJson(endpoint, options) {
+    const response = await fetch(endpoint, options);
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(result.detail || "Request failed");
+    }
+
+    return result;
+}
+
 export function renderScore(file) {
     return uploadScore("/api/scores/render", file);
 }
 
 export function analyzeScore(file) {
     return uploadScore("/api/scores/analyze", file);
+}
+
+export function listProjects() {
+    return requestJson("/api/projects");
+}
+
+export function createProject(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return requestJson("/api/projects", {
+        method: "POST",
+        body: formData,
+    });
+}
+
+export function getProject(projectId) {
+    return requestJson(`/api/projects/${encodeURIComponent(projectId)}`);
+}
+
+export function projectExportUrl(projectId) {
+    return `/api/projects/${encodeURIComponent(projectId)}/export`;
 }

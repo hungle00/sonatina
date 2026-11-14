@@ -15,8 +15,13 @@ MAX_FILE_SIZE = 15 * 1024 * 1024
 MUSICXML_EXTENSIONS = {".musicxml", ".xml"}
 
 
+def safe_musicxml_filename(filename: str | None) -> str:
+    normalized = (filename or "").replace("\\", "/")
+    return Path(normalized).name or "score.musicxml"
+
+
 async def read_musicxml(file: UploadFile) -> bytes:
-    extension = Path(file.filename or "").suffix.lower()
+    extension = Path(safe_musicxml_filename(file.filename)).suffix.lower()
 
     if extension not in MUSICXML_EXTENSIONS:
         raise HTTPException(400, "Only MusicXML files are supported")

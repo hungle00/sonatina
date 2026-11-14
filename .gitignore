@@ -28,6 +28,7 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+/data/
 
 # Local editor and OS files
 .DS_Store
