@@ -1,4 +1,6 @@
-# Music Toolkit
+# Sonatina
+
+A local-first music notation editor and toolkit.
 
 ## Run locally
 

@@ -411,44 +411,81 @@ export default function ScoreViewer({ pages, midiBase64, timeline }) {
 
     return (
         <div className="viewer">
-            <div className="toolbar">
-                <button onClick={() => changeZoom(-10)}>−</button>
-                <span>{zoom}%</span>
-                <button onClick={() => changeZoom(10)}>+</button>
-                <button onClick={() => setZoom(100)}>Reset</button>
-                <button
-                    disabled={!midiBase64}
-                    onClick={isPlaying ? stopPlayback : playMidi}
-                >
-                    {isPlaying ? "Stop" : "Play"}
-                </button>
-                <label className="tempo-control">
-                    Tempo {tempoPercent}%
-                    <input
-                        aria-label="Playback tempo"
-                        type="range"
-                        min="50"
-                        max="150"
-                        step="5"
-                        value={tempoPercent}
-                        onChange={event =>
-                            changeTempo(Number(event.target.value))
-                        }
-                    />
-                </label>
-                <button
-                    onClick={() => setInspectorVisible(visible => !visible)}
-                >
-                    {inspectorVisible ? "Hide inspector" : "Show inspector"}
-                </button>
-                {playbackError && (
-                    <span className="playback-error" role="alert">
-                        {playbackError}
-                    </span>
-                )}
-
-                <div className="pagination">
+            <div
+                className="score-toolbar"
+                role="toolbar"
+                aria-label="Score controls"
+            >
+                <div className="toolbar-group playback-group">
                     <button
+                        className={`tool-btn ${isPlaying ? "primary" : ""}`}
+                        disabled={!midiBase64}
+                        onClick={isPlaying ? stopPlayback : playMidi}
+                    >
+                        <span aria-hidden="true">{isPlaying ? "■" : "▶"}</span>
+                        {isPlaying ? "Stop" : "Play"}
+                    </button>
+                    <label className="tempo-control">
+                        <span>Tempo: {tempoPercent}%</span>
+                        <input
+                            aria-label="Playback tempo"
+                            type="range"
+                            min="50"
+                            max="150"
+                            step="5"
+                            value={tempoPercent}
+                            onChange={event =>
+                                changeTempo(Number(event.target.value))
+                            }
+                        />
+                    </label>
+                </div>
+
+                <div className="toolbar-divider" aria-hidden="true" />
+
+                <div className="toolbar-group view-tools-group">
+                    <button
+                        className="tool-btn zoom-button"
+                        aria-label="Zoom out"
+                        title="Zoom out"
+                        onClick={() => changeZoom(-10)}
+                    >
+                        −
+                    </button>
+                    <span className="zoom-level">{zoom}%</span>
+                    <button
+                        className="tool-btn zoom-button"
+                        aria-label="Zoom in"
+                        title="Zoom in"
+                        onClick={() => changeZoom(10)}
+                    >
+                        +
+                    </button>
+                    <button
+                        className="tool-btn reset-zoom-button"
+                        onClick={() => setZoom(100)}
+                    >
+                        Reset
+                    </button>
+                    <button
+                        className={`tool-btn inspector-button ${
+                            inspectorVisible ? "selected" : ""
+                        }`}
+                        aria-pressed={inspectorVisible}
+                        onClick={() =>
+                            setInspectorVisible(visible => !visible)
+                        }
+                    >
+                        <span aria-hidden="true">⚙</span>
+                        Inspector
+                    </button>
+                </div>
+
+                <div className="toolbar-divider" aria-hidden="true" />
+
+                <div className="toolbar-group pagination">
+                    <button
+                        className="tool-btn"
                         disabled={page === 0}
                         onClick={() => {
                             setPage(p => p - 1);
@@ -458,9 +495,12 @@ export default function ScoreViewer({ pages, midiBase64, timeline }) {
                         Previous
                     </button>
 
-                    <span>{page + 1} / {pages.length}</span>
+                    <span className="page-count">
+                        {page + 1} / {pages.length}
+                    </span>
 
                     <button
+                        className="tool-btn"
                         disabled={page === pages.length - 1}
                         onClick={() => {
                             setPage(p => p + 1);
@@ -470,6 +510,12 @@ export default function ScoreViewer({ pages, midiBase64, timeline }) {
                         Next
                     </button>
                 </div>
+
+                {playbackError && (
+                    <span className="playback-error" role="alert">
+                        {playbackError}
+                    </span>
+                )}
             </div>
 
             <div
@@ -477,7 +523,10 @@ export default function ScoreViewer({ pages, midiBase64, timeline }) {
                     inspectorVisible ? "" : "inspector-hidden"
                 }`}
             >
-                <div className="score-container" ref={scoreContainerRef}>
+                <div
+                    className="score-container score-canvas-container"
+                    ref={scoreContainerRef}
+                >
                     <div
                         className="score-page"
                         ref={scorePageRef}
