@@ -425,48 +425,96 @@ export default function ScoreViewer({ pages, midiBase64, timeline }) {
                         <span aria-hidden="true">{isPlaying ? "■" : "▶"}</span>
                         {isPlaying ? "Stop" : "Play"}
                     </button>
-                    <label className="tempo-control">
-                        <span>Tempo: {tempoPercent}%</span>
-                        <input
-                            aria-label="Playback tempo"
-                            type="range"
-                            min="50"
-                            max="150"
-                            step="5"
-                            value={tempoPercent}
-                            onChange={event =>
-                                changeTempo(Number(event.target.value))
-                            }
-                        />
-                    </label>
+                    <details className="tempo-menu">
+                        <summary
+                            className="tool-btn tempo-button"
+                            aria-label={`Tempo controls, currently ${tempoPercent}%`}
+                            title={`Tempo: ${tempoPercent}%`}
+                        >
+                            <span aria-hidden="true">♩</span>
+                            <span>{tempoPercent}%</span>
+                        </summary>
+                        <div className="tempo-popover">
+                            <label
+                                className="tempo-control"
+                                htmlFor="playback-tempo"
+                            >
+                                <span>Playback tempo</span>
+                                <strong>{tempoPercent}%</strong>
+                            </label>
+                            <input
+                                id="playback-tempo"
+                                className="tempo-slider"
+                                aria-label="Playback tempo"
+                                type="range"
+                                min="50"
+                                max="150"
+                                step="5"
+                                value={tempoPercent}
+                                onChange={event =>
+                                    changeTempo(Number(event.target.value))
+                                }
+                            />
+                        </div>
+                    </details>
                 </div>
 
-                <div className="toolbar-divider" aria-hidden="true" />
+                <div className="toolbar-group score-navigation">
+                    <button
+                        className="tool-btn page-button"
+                        aria-label="Previous page"
+                        title="Previous page"
+                        disabled={page === 0}
+                        onClick={() => {
+                            setPage(currentPage => currentPage - 1);
+                            setSelectedNote(null);
+                        }}
+                    >
+                        ‹
+                    </button>
+                    <span className="page-count">
+                        Page {page + 1} / {pages.length}
+                    </span>
+                    <button
+                        className="tool-btn page-button"
+                        aria-label="Next page"
+                        title="Next page"
+                        disabled={page === pages.length - 1}
+                        onClick={() => {
+                            setPage(currentPage => currentPage + 1);
+                            setSelectedNote(null);
+                        }}
+                    >
+                        ›
+                    </button>
+                </div>
 
-                <div className="toolbar-group view-tools-group">
-                    <button
-                        className="tool-btn zoom-button"
-                        aria-label="Zoom out"
-                        title="Zoom out"
-                        onClick={() => changeZoom(-10)}
-                    >
-                        −
-                    </button>
-                    <span className="zoom-level">{zoom}%</span>
-                    <button
-                        className="tool-btn zoom-button"
-                        aria-label="Zoom in"
-                        title="Zoom in"
-                        onClick={() => changeZoom(10)}
-                    >
-                        +
-                    </button>
-                    <button
-                        className="tool-btn reset-zoom-button"
-                        onClick={() => setZoom(100)}
-                    >
-                        Reset
-                    </button>
+                <div className="toolbar-group toolbar-actions">
+                    <div className="zoom-controls" aria-label="Zoom controls">
+                        <button
+                            className="tool-btn zoom-button"
+                            aria-label="Zoom out"
+                            title="Zoom out"
+                            onClick={() => changeZoom(-10)}
+                        >
+                            −
+                        </button>
+                        <span className="zoom-level">{zoom}%</span>
+                        <button
+                            className="tool-btn zoom-button"
+                            aria-label="Zoom in"
+                            title="Zoom in"
+                            onClick={() => changeZoom(10)}
+                        >
+                            +
+                        </button>
+                        <button
+                            className="tool-btn zoom-reset"
+                            onClick={() => setZoom(100)}
+                        >
+                            Reset
+                        </button>
+                    </div>
                     <button
                         className={`tool-btn inspector-button ${
                             inspectorVisible ? "selected" : ""
@@ -478,36 +526,6 @@ export default function ScoreViewer({ pages, midiBase64, timeline }) {
                     >
                         <span aria-hidden="true">⚙</span>
                         Inspector
-                    </button>
-                </div>
-
-                <div className="toolbar-divider" aria-hidden="true" />
-
-                <div className="toolbar-group pagination">
-                    <button
-                        className="tool-btn"
-                        disabled={page === 0}
-                        onClick={() => {
-                            setPage(p => p - 1);
-                            setSelectedNote(null);
-                        }}
-                    >
-                        Previous
-                    </button>
-
-                    <span className="page-count">
-                        {page + 1} / {pages.length}
-                    </span>
-
-                    <button
-                        className="tool-btn"
-                        disabled={page === pages.length - 1}
-                        onClick={() => {
-                            setPage(p => p + 1);
-                            setSelectedNote(null);
-                        }}
-                    >
-                        Next
                     </button>
                 </div>
 
@@ -554,29 +572,90 @@ export default function ScoreViewer({ pages, midiBase64, timeline }) {
                 </div>
 
                 {inspectorVisible && (
-                    <aside className="inspector">
-                        <h3>Note Inspector</h3>
-
-                        {selectedNote ? (
-                            <dl>
-                                <dt>Pitch</dt>
-                                <dd>{selectedNote.pitch}{selectedNote.octave}</dd>
-
-                                <dt>Duration</dt>
-                                <dd>{selectedNote.duration}</dd>
-
-                                <dt>Accidental</dt>
-                                <dd>{selectedNote.accidental}</dd>
-
-                                <dt>Dots</dt>
-                                <dd>{selectedNote.dots}</dd>
-
-                                <dt>Element ID</dt>
-                                <dd>{selectedNote.id}</dd>
-                            </dl>
-                        ) : (
-                            <p>Click a note to inspect its properties.</p>
-                        )}
+                    <aside className="editor-sidebar">
+                        <div className="sidebar-header">
+                            <span>Score Inspector</span>
+                            <button
+                                className="sidebar-close"
+                                aria-label="Close inspector"
+                                onClick={() => setInspectorVisible(false)}
+                            >
+                                ×
+                            </button>
+                        </div>
+                        <div className="sidebar-tabs">
+                            <div className="sidebar-tab active">
+                                Properties
+                            </div>
+                            <button
+                                className="sidebar-tab"
+                                disabled
+                                title="Editor tools are not available yet"
+                            >
+                                Editor Tools
+                            </button>
+                        </div>
+                        <div className="sidebar-content">
+                            <div className="control-group">
+                                <label htmlFor="transpose-key">
+                                    Transpose Key (Đổi giọng)
+                                </label>
+                                <select id="transpose-key" disabled>
+                                    <option>Original key (view only)</option>
+                                </select>
+                            </div>
+                            <div className="control-group">
+                                <label htmlFor="score-dynamics">
+                                    Dynamics (Cường độ mặc định)
+                                </label>
+                                <select id="score-dynamics" disabled>
+                                    <option>Not available yet</option>
+                                </select>
+                            </div>
+                            <div className="control-group">
+                                <label>Editor Mode</label>
+                                <div className="editor-mode-options">
+                                    <button className="tool-btn selected" disabled>
+                                        Pointer
+                                    </button>
+                                    <button className="tool-btn" disabled>
+                                        Note Input
+                                    </button>
+                                </div>
+                            </div>
+                            <section className="inspector-properties">
+                                <h3>Selected note</h3>
+                                {selectedNote ? (
+                                    <dl>
+                                        <div>
+                                            <dt>Pitch</dt>
+                                            <dd>{selectedNote.pitch}{selectedNote.octave}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Duration</dt>
+                                            <dd>{selectedNote.duration}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Accidental</dt>
+                                            <dd>{selectedNote.accidental}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Dots</dt>
+                                            <dd>{selectedNote.dots}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Element ID</dt>
+                                            <dd>{selectedNote.id}</dd>
+                                        </div>
+                                    </dl>
+                                ) : (
+                                    <p className="inspector-empty">
+                                        Select a note on the score to see its
+                                        properties.
+                                    </p>
+                                )}
+                            </section>
+                        </div>
                     </aside>
                 )}
             </div>

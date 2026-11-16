@@ -189,63 +189,77 @@ export default function App() {
     }
 
     return (
-        <div className="app-shell">
-            <aside className="sidebar">
-                <button className="brand" onClick={showProjects}>
-                    <span className="brand-icon">♪</span>
-                    <span>Music Toolkit</span>
-                </button>
+        <div className={`app-shell ${routeProjectId ? "project-view" : ""}`}>
+            {!routeProjectId && (
+                <aside className="sidebar">
+                    <button className="brand" onClick={showProjects}>
+                        <span className="brand-icon">♪</span>
+                        <span>Music Toolkit</span>
+                    </button>
 
-                <button
-                    className="btn-primary sidebar-import"
-                    onClick={() => {
-                        setError("");
-                        setIsImportModalOpen(true);
-                    }}
-                >
-                    <span aria-hidden="true">+</span> Import Score
-                </button>
-
-                <nav className="sidebar-section" aria-label="Workspace">
-                    <div className="sidebar-label">Workspace</div>
                     <button
-                        className={`nav-item ${!routeProjectId ? "active" : ""}`}
-                        onClick={showProjects}
+                        className="btn-primary sidebar-import"
+                        onClick={() => {
+                            setError("");
+                            setIsImportModalOpen(true);
+                        }}
                     >
-                        <span>All Scores</span>
-                        <span className="nav-count">{projects.length}</span>
-                    </button>
-                    <button className="nav-item nav-placeholder" disabled>
-                        <span>Recent Edits</span>
+                        <span aria-hidden="true">+</span> Import Score
                     </button>
 
-                    <div className="sidebar-label quick-open-label">
-                        Quick Open
-                    </div>
-                    {projects.slice(0, 5).map(project => (
+                    <nav className="sidebar-section" aria-label="Workspace">
+                        <div className="sidebar-label">Workspace</div>
                         <button
-                            className={`nav-item quick-open-item ${
-                                project.id === routeProjectId ? "active" : ""
+                            className={`nav-item ${
+                                !routeProjectId ? "active" : ""
                             }`}
-                            key={project.id}
-                            title={project.name}
-                            onClick={() => openProject(project)}
+                            onClick={showProjects}
                         >
-                            <span>{project.name}</span>
+                            <span>All Scores</span>
+                            <span className="nav-count">{projects.length}</span>
                         </button>
-                    ))}
-                    {!isLoadingProjects && projects.length === 0 && (
-                        <p className="sidebar-empty">No projects yet</p>
-                    )}
-                </nav>
-                <div className="sidebar-footer">Music Toolkit</div>
-            </aside>
+                        <button className="nav-item nav-placeholder" disabled>
+                            <span>Recent Edits</span>
+                        </button>
+
+                        <div className="sidebar-label quick-open-label">
+                            Quick Open
+                        </div>
+                        {projects.slice(0, 5).map(project => (
+                            <button
+                                className={`nav-item quick-open-item ${
+                                    project.id === routeProjectId ? "active" : ""
+                                }`}
+                                key={project.id}
+                                title={project.name}
+                                onClick={() => openProject(project)}
+                            >
+                                <span>{project.name}</span>
+                            </button>
+                        ))}
+                        {!isLoadingProjects && projects.length === 0 && (
+                            <p className="sidebar-empty">No projects yet</p>
+                        )}
+                    </nav>
+                    <div className="sidebar-footer">Music Toolkit</div>
+                </aside>
+            )}
 
             <div className="main-content">
                 <header className="app-header">
                     <div className="breadcrumb">
-                        <button onClick={showProjects}>Music Toolkit</button>
-                        <span aria-hidden="true">/</span>
+                        {routeProjectId ? (
+                            <button
+                                className="back-to-dashboard"
+                                onClick={showProjects}
+                            >
+                                <span aria-hidden="true">←</span>
+                                Dashboard
+                            </button>
+                        ) : (
+                            <button onClick={showProjects}>Music Toolkit</button>
+                        )}
+                        {!routeProjectId && <span aria-hidden="true">/</span>}
                         {currentProject ? (
                             <strong title={currentProject.name}>
                                 {currentProject.name}
