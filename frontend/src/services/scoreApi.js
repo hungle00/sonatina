@@ -53,6 +53,12 @@ export function getProject(projectId) {
     return requestJson(`/api/projects/${encodeURIComponent(projectId)}`);
 }
 
+export function deleteProject(projectId) {
+    return requestJson(`/api/projects/${encodeURIComponent(projectId)}`, {
+        method: "DELETE",
+    });
+}
+
 export function projectExportUrl(projectId) {
     return `/api/projects/${encodeURIComponent(projectId)}/export`;
 }

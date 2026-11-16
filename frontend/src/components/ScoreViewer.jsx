@@ -83,7 +83,13 @@ function stopScheduledNotes(audioContext, nodes) {
     nodes.clear();
 }
 
-export default function ScoreViewer({ pages, midiBase64, timeline }) {
+export default function ScoreViewer({
+    pages,
+    midiBase64,
+    timeline,
+    analysis,
+    analysisError,
+}) {
     const scoreTimeline = Array.isArray(timeline) ? timeline : EMPTY_TIMELINE;
     const syncEngine = useMemo(
         () => new ScoreSyncEngine(scoreTimeline),
@@ -596,6 +602,33 @@ export default function ScoreViewer({ pages, midiBase64, timeline }) {
                             </button>
                         </div>
                         <div className="sidebar-content">
+                            <section className="inspector-properties">
+                                <h3>Score overview</h3>
+                                {analysis ? (
+                                    <dl>
+                                        <div>
+                                            <dt>Key</dt>
+                                            <dd>{analysis.key}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Time signature</dt>
+                                            <dd>{analysis.time_signature}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Tempo</dt>
+                                            <dd>{analysis.tempo}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Parts</dt>
+                                            <dd>{analysis.parts}</dd>
+                                        </div>
+                                    </dl>
+                                ) : (
+                                    <p className="inspector-empty" role="status">
+                                        {analysisError || "Score analysis is unavailable."}
+                                    </p>
+                                )}
+                            </section>
                             <div className="control-group">
                                 <label htmlFor="transpose-key">
                                     Transpose Key (Đổi giọng)

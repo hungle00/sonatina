@@ -5,6 +5,7 @@ import ScoreViewer from "./components/ScoreViewer";
 
 import {
     createProject,
+    deleteProject,
     getProject,
     listProjects,
     projectExportUrl,
@@ -51,15 +52,16 @@ export default function App() {
     const [score, setScore] = useState(null);
     const [analysis, setAnalysis] = useState(null);
     const [analysisError, setAnalysisError] = useState("");
-    const [analysisVisible, setAnalysisVisible] = useState(false);
     const [routeProjectId, setRouteProjectId] = useState(projectIdFromLocation);
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [isImporting, setIsImporting] = useState(false);
+    const [isDeletingProject, setIsDeletingProject] = useState(false);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [projectsError, setProjectsError] = useState("");
     const [projectLoadError, setProjectLoadError] = useState(null);
     const [error, setError] = useState("");
+    const [deleteError, setDeleteError] = useState("");
     const skipNextProjectLoad = useRef(null);
 
     useEffect(() => {
@@ -119,7 +121,7 @@ export default function App() {
                 setScore(result.score);
                 setAnalysis(result.analysis);
                 setAnalysisError(result.analysis_error || "");
-                setAnalysisVisible(false);
+                setDeleteError("");
             })
             .catch(loadError => {
                 if (!cancelled) {
@@ -154,8 +156,37 @@ export default function App() {
         window.history.pushState(null, "", "/");
         setProjectLoadError(null);
         setRouteProjectId(null);
+        setActiveProject(null);
+        setScore(null);
+        setAnalysis(null);
+        setAnalysisError("");
+        setDeleteError("");
         setFile(null);
         setError("");
+    }
+
+    async function handleDeleteProject() {
+        if (!currentProject || isDeletingProject) return;
+
+        const confirmed = window.confirm(
+            `Delete "${currentProject.name}" and its saved MusicXML snapshots? This cannot be undone.`
+        );
+        if (!confirmed) return;
+
+        setIsDeletingProject(true);
+        setDeleteError("");
+
+        try {
+            await deleteProject(currentProject.id);
+            setProjects(current =>
+                current.filter(project => project.id !== currentProject.id)
+            );
+            showProjects();
+        } catch (deleteRequestError) {
+            setDeleteError(deleteRequestError.message);
+        } finally {
+            setIsDeletingProject(false);
+        }
     }
 
     async function handleImport() {
@@ -398,19 +429,6 @@ export default function App() {
                                     </p>
                                 </div>
                                 <div className="detail-actions">
-                                    {analysis && (
-                                        <button
-                                            className="btn-ghost"
-                                            aria-expanded={analysisVisible}
-                                            onClick={() =>
-                                                setAnalysisVisible(visible => !visible)
-                                            }
-                                        >
-                                            {analysisVisible
-                                                ? "Hide analysis"
-                                                : "Analysis"}
-                                        </button>
-                                    )}
                                     <a
                                         className="btn-primary export-button"
                                         href={projectExportUrl(currentProject.id)}
@@ -418,48 +436,30 @@ export default function App() {
                                         <span aria-hidden="true">↓</span>
                                         Export MusicXML
                                     </a>
+                                    <button
+                                        className="btn-danger delete-project-button"
+                                        disabled={isDeletingProject}
+                                        onClick={handleDeleteProject}
+                                    >
+                                        <span aria-hidden="true">⌫</span>
+                                        {isDeletingProject ? "Deleting..." : "Delete"}
+                                    </button>
                                 </div>
                             </div>
 
-                            {analysis && analysisVisible && (
-                                <section className="analysis-panel">
-                                    <div className="analysis-heading">
-                                        <div>
-                                            <h2>Score overview</h2>
-                                            <p>Details from the current revision</p>
-                                        </div>
-                                    </div>
-                                    <div className="analysis-grid">
-                                        <div>
-                                            <small>Key</small>
-                                            <strong>{analysis.key}</strong>
-                                        </div>
-                                        <div>
-                                            <small>Parts</small>
-                                            <strong>{analysis.parts}</strong>
-                                        </div>
-                                        {analysis.notes != null && (
-                                            <div>
-                                                <small>Notes</small>
-                                                <strong>{analysis.notes}</strong>
-                                            </div>
-                                        )}
-                                    </div>
-                                </section>
-                            )}
-
-                            {analysisError && (
-                                <p className="error-message">
-                                    Analysis failed: {analysisError}
+                            {deleteError && (
+                                <p className="error-message" role="alert">
+                                    {deleteError}
                                 </p>
                             )}
-
                             <section className="score-section">
                                 <ScoreViewer
                                     key={currentProject.id}
                                     pages={score.pages}
                                     midiBase64={score.midi_base64}
                                     timeline={score.timeline}
+                                    analysis={analysis}
+                                    analysisError={analysisError}
                                 />
                             </section>
                         </section>

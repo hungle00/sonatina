@@ -9,6 +9,10 @@ from typing import Iterator
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 
+class ProjectSnapshotCleanupError(OSError):
+    pass
+
+
 class ProjectStore:
     def __init__(self, data_dir: Path = DATA_DIR):
         self.data_dir = Path(data_dir)
@@ -159,3 +163,71 @@ class ProjectStore:
         if snapshot_path is None:
             return None
         return snapshot_path.read_bytes()
+
+    def delete_project(self, project_id: str) -> bool:
+        moved_to_trash = False
+        trash_directory = self.data_dir / (
+            f".project-delete-{project_id}-{uuid.uuid4().hex}"
+        )
+        try:
+            with self.connect() as connection:
+                project = connection.execute(
+                    "SELECT id FROM projects WHERE id = ?",
+                    (project_id,),
+                ).fetchone()
+                if project is None:
+                    return False
+
+                revisions = connection.execute(
+                    """
+                    SELECT musicxml_path
+                    FROM score_revisions
+                    WHERE project_id = ?
+                    """,
+                    (project_id,),
+                ).fetchall()
+                storage_root = self.musicxml_dir.resolve()
+                project_directory = (self.musicxml_dir / project_id).resolve()
+                if (
+                    not project_directory.is_relative_to(storage_root)
+                    or project_directory.parent != storage_root
+                ):
+                    raise ValueError("Invalid project MusicXML directory")
+
+                snapshot_names = []
+                for revision in revisions:
+                    snapshot_path = (
+                        self.data_dir / revision["musicxml_path"]
+                    ).resolve()
+                    if (
+                        not snapshot_path.is_relative_to(project_directory)
+                        or snapshot_path.parent != project_directory
+                    ):
+                        raise ValueError("Invalid MusicXML snapshot path")
+                    snapshot_names.append(snapshot_path.name)
+
+                moved_to_trash = project_directory.is_dir()
+                if moved_to_trash:
+                    project_directory.rename(trash_directory)
+
+                connection.execute(
+                    "DELETE FROM projects WHERE id = ?",
+                    (project_id,),
+                )
+        except Exception:
+            if moved_to_trash and trash_directory.is_dir():
+                trash_directory.rename(project_directory)
+            raise
+
+        if moved_to_trash:
+            try:
+                for snapshot_name in snapshot_names:
+                    (trash_directory / snapshot_name).unlink(missing_ok=True)
+                trash_directory.rmdir()
+            except OSError as error:
+                raise ProjectSnapshotCleanupError(
+                    "Project was deleted but its MusicXML files could not be "
+                    "fully removed"
+                ) from error
+
+        return True

@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 
 from api.scores import read_musicxml, safe_musicxml_filename
 from services.music_service import analyze_score, load_score
-from services.project_store import ProjectStore
+from services.project_store import ProjectSnapshotCleanupError, ProjectStore
 from services.score_renderer import render_musicxml
 
 router = APIRouter()
@@ -144,3 +144,17 @@ def export_project(project_id: str):
         media_type="application/vnd.recordare.musicxml+xml",
         filename=project["source_filename"],
     )
+
+
+@router.delete("/projects/{project_id}")
+def delete_project(project_id: str):
+    try:
+        deleted = project_store.delete_project(project_id)
+    except ProjectSnapshotCleanupError as error:
+        raise HTTPException(500, str(error)) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(500, "Could not delete project") from error
+
+    if not deleted:
+        raise HTTPException(404, "Project not found")
+    return {"deleted": True}

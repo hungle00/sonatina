@@ -21,7 +21,7 @@ def analyze_score(score):
     return {
         "key": key,
         "time_signature": (
-            str(time_signatures[0]) if time_signatures else "Unknown"
+            time_signatures[0].ratioString if time_signatures else "Unknown"
         ),
         "tempo": (
             str(tempos[0].number) if tempos else "Unknown"

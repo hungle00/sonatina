@@ -51,3 +51,22 @@ class ProjectStoreTests(unittest.TestCase):
 
             self.assertIsNone(store.get_project("missing"))
             self.assertIsNone(store.read_musicxml("missing"))
+            self.assertFalse(store.delete_project("missing"))
+
+    def test_delete_project_removes_database_rows_and_snapshot(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            store = ProjectStore(Path(temporary_directory))
+            project = store.create_project(
+                "playback",
+                "playback.musicxml",
+                MUSICXML,
+            )
+            snapshot_path = store.get_musicxml_path(project["id"])
+            project_directory = snapshot_path.parent
+
+            self.assertTrue(store.delete_project(project["id"]))
+            self.assertIsNone(store.get_project(project["id"]))
+            self.assertEqual(store.list_projects(), [])
+            self.assertFalse(snapshot_path.exists())
+            self.assertFalse(project_directory.exists())
+            self.assertFalse(store.delete_project(project["id"]))
