@@ -225,7 +225,7 @@ export default function App() {
                 <aside className="sidebar">
                     <button className="brand" onClick={showProjects}>
                         <span className="brand-icon">♪</span>
-                        <span>Music Toolkit</span>
+                        <span>Sonatina</span>
                     </button>
 
                     <button
@@ -272,7 +272,7 @@ export default function App() {
                             <p className="sidebar-empty">No projects yet</p>
                         )}
                     </nav>
-                    <div className="sidebar-footer">Music Toolkit</div>
+                    <div className="sidebar-footer">Sonatina</div>
                 </aside>
             )}
 

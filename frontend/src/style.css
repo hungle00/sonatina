@@ -82,7 +82,7 @@ header {
     position: absolute;
     z-index: 1;
     top: 0;
-    bottom: 0;
+    height: 0;
     width: 2px;
     background: #e11d48;
     box-shadow: 0 0 3px rgb(225 29 72 / 65%);

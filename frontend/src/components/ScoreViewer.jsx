@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Midi } from "@tonejs/midi";
 import DOMPurify from "dompurify";
 
+import ScoreInspector from "./ScoreInspector";
 import { ScoreSyncEngine } from "../services/scoreSync";
 
 const EMPTY_TIMELINE = [];
@@ -332,25 +333,47 @@ export default function ScoreViewer({
             return;
         }
 
+        const systemGroup = target.closest("g.system");
+        if (!systemGroup) {
+            cursorSegmentRef.current = null;
+            cursorElement.style.visibility = "hidden";
+            return;
+        }
+
         const nextTarget = cursorAnchor.next_cursor_id
             ? elements.find(
                 element => element.id === cursorAnchor.next_cursor_id
             )
             : null;
-        const sameSystem = nextTarget &&
-            target.closest("g.system") === nextTarget.closest("g.system");
+        const sameSystem = nextTarget?.closest("g.system") === systemGroup;
         const pageBounds = pageElement.getBoundingClientRect();
         const targetBounds = target.getBoundingClientRect();
+        const systemBounds = systemGroup.getBoundingClientRect();
         const containerBounds = scoreContainer.getBoundingClientRect();
         const targetCenter = targetBounds.top + targetBounds.height / 2;
-        const startLeft =
-            targetBounds.left + targetBounds.width / 2 - pageBounds.left;
+        const systemLeft = systemBounds.left - pageBounds.left;
+        const systemRight = systemBounds.right - pageBounds.left;
+        const startLeft = Math.min(
+            systemRight,
+            Math.max(
+                systemLeft,
+                targetBounds.left + targetBounds.width / 2 - pageBounds.left
+            )
+        );
         const nextBounds = nextTarget?.getBoundingClientRect();
         const endLeft = sameSystem && nextBounds
-            ? nextBounds.left + nextBounds.width / 2 - pageBounds.left
+            ? Math.min(
+                systemRight,
+                Math.max(
+                    systemLeft,
+                    nextBounds.left + nextBounds.width / 2 - pageBounds.left
+                )
+            )
             : startLeft;
 
         cursorElement.style.left = `${startLeft}px`;
+        cursorElement.style.top = `${systemBounds.top - pageBounds.top}px`;
+        cursorElement.style.height = `${systemBounds.height}px`;
         cursorElement.style.visibility = "visible";
         cursorSegmentRef.current = {
             page,
@@ -570,6 +593,8 @@ export default function ScoreViewer({
                                     ref={cursorElementRef}
                                     style={{
                                         left: 0,
+                                        top: 0,
+                                        height: 0,
                                         visibility: "hidden"
                                     }}
                                 />
@@ -578,118 +603,12 @@ export default function ScoreViewer({
                 </div>
 
                 {inspectorVisible && (
-                    <aside className="editor-sidebar">
-                        <div className="sidebar-header">
-                            <span>Score Inspector</span>
-                            <button
-                                className="sidebar-close"
-                                aria-label="Close inspector"
-                                onClick={() => setInspectorVisible(false)}
-                            >
-                                ×
-                            </button>
-                        </div>
-                        <div className="sidebar-tabs">
-                            <div className="sidebar-tab active">
-                                Properties
-                            </div>
-                            <button
-                                className="sidebar-tab"
-                                disabled
-                                title="Editor tools are not available yet"
-                            >
-                                Editor Tools
-                            </button>
-                        </div>
-                        <div className="sidebar-content">
-                            <section className="inspector-properties">
-                                <h3>Score overview</h3>
-                                {analysis ? (
-                                    <dl>
-                                        <div>
-                                            <dt>Key</dt>
-                                            <dd>{analysis.key}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Time signature</dt>
-                                            <dd>{analysis.time_signature}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Tempo</dt>
-                                            <dd>{analysis.tempo}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Parts</dt>
-                                            <dd>{analysis.parts}</dd>
-                                        </div>
-                                    </dl>
-                                ) : (
-                                    <p className="inspector-empty" role="status">
-                                        {analysisError || "Score analysis is unavailable."}
-                                    </p>
-                                )}
-                            </section>
-                            <div className="control-group">
-                                <label htmlFor="transpose-key">
-                                    Transpose Key (Đổi giọng)
-                                </label>
-                                <select id="transpose-key" disabled>
-                                    <option>Original key (view only)</option>
-                                </select>
-                            </div>
-                            <div className="control-group">
-                                <label htmlFor="score-dynamics">
-                                    Dynamics (Cường độ mặc định)
-                                </label>
-                                <select id="score-dynamics" disabled>
-                                    <option>Not available yet</option>
-                                </select>
-                            </div>
-                            <div className="control-group">
-                                <label>Editor Mode</label>
-                                <div className="editor-mode-options">
-                                    <button className="tool-btn selected" disabled>
-                                        Pointer
-                                    </button>
-                                    <button className="tool-btn" disabled>
-                                        Note Input
-                                    </button>
-                                </div>
-                            </div>
-                            <section className="inspector-properties">
-                                <h3>Selected note</h3>
-                                {selectedNote ? (
-                                    <dl>
-                                        <div>
-                                            <dt>Pitch</dt>
-                                            <dd>{selectedNote.pitch}{selectedNote.octave}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Duration</dt>
-                                            <dd>{selectedNote.duration}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Accidental</dt>
-                                            <dd>{selectedNote.accidental}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Dots</dt>
-                                            <dd>{selectedNote.dots}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>Element ID</dt>
-                                            <dd>{selectedNote.id}</dd>
-                                        </div>
-                                    </dl>
-                                ) : (
-                                    <p className="inspector-empty">
-                                        Select a note on the score to see its
-                                        properties.
-                                    </p>
-                                )}
-                            </section>
-                        </div>
-                    </aside>
+                    <ScoreInspector
+                        analysis={analysis}
+                        analysisError={analysisError}
+                        selectedNote={selectedNote}
+                        onClose={() => setInspectorVisible(false)}
+                    />
                 )}
             </div>
         </div>
