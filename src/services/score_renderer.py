@@ -56,6 +56,7 @@ def render_musicxml(
             "time_ms": int(event["tstamp"]),
             "page": current_page - 1,
             "cursor_id": cursor_ids[0] if cursor_ids else None,
+            "measure_id": measure_id,
         })
 
     next_cursor_event = None

@@ -3,6 +3,7 @@ import { Midi } from "@tonejs/midi";
 import DOMPurify from "dompurify";
 
 import ScoreInspector from "./ScoreInspector";
+import { createMidiNoteSchedules } from "../services/midiPlayback";
 import { ScoreSyncEngine } from "../services/scoreSync";
 
 const EMPTY_TIMELINE = [];
@@ -27,35 +28,20 @@ const ACCIDENTALS = {
 };
 
 function scheduleMidiNotes(audioContext, notes, fromScoreMs, syncEngine, nodes) {
-    const minimumStartTime = audioContext.currentTime + 0.025;
+    const schedules = createMidiNoteSchedules(
+        notes,
+        fromScoreMs,
+        syncEngine,
+        audioContext.currentTime
+    );
 
-    for (const note of notes) {
-        const noteStartMs = note.time * 1000;
-        const noteEndMs = noteStartMs + note.duration * 1000;
-
-        if (noteEndMs <= fromScoreMs) {
-            continue;
-        }
-
-        const scheduledStartMs = Math.max(noteStartMs, fromScoreMs);
-        const noteStart = Math.max(
-            syncEngine.audioTimeAt(scheduledStartMs),
-            minimumStartTime
-        );
-        const duration = Math.max(
-            (noteEndMs - scheduledStartMs) /
-                (1000 * syncEngine.tempoRatio),
-            0.05
-        );
-        const noteEnd = noteStart + duration;
+    for (const { noteStart, noteEnd, volume, frequency } of schedules) {
         const oscillator = audioContext.createOscillator();
         const gain = audioContext.createGain();
-        const volume = Math.max(note.velocity * 0.15, 0.0001);
         const scheduledNote = { oscillator, gain };
 
         oscillator.type = "triangle";
-        oscillator.frequency.value =
-            440 * 2 ** ((note.midi - 69) / 12);
+        oscillator.frequency.value = frequency;
         gain.gain.setValueAtTime(0.0001, noteStart);
         gain.gain.exponentialRampToValueAtTime(volume, noteStart + 0.01);
         gain.gain.setValueAtTime(
@@ -96,6 +82,14 @@ export default function ScoreViewer({
         () => new ScoreSyncEngine(scoreTimeline),
         [scoreTimeline]
     );
+    const measureEvents = useMemo(
+        () => new Map(
+            scoreTimeline
+                .filter(event => event.measure_id)
+                .map(event => [event.measure_id, event])
+        ),
+        [scoreTimeline]
+    );
     const [page, setPage] = useState(0);
     const [zoom, setZoom] = useState(100);
     const [selectedNote, setSelectedNote] = useState(null);
@@ -106,6 +100,7 @@ export default function ScoreViewer({
     const [cursorAnchor, setCursorAnchor] = useState(null);
     const audioContextRef = useRef(null);
     const animationFrameRef = useRef(null);
+    const playbackAudioStartTimeRef = useRef(0);
     const oscillatorNodesRef = useRef(new Set());
     const scoreContainerRef = useRef(null);
     const scorePageRef = useRef(null);
@@ -169,7 +164,7 @@ export default function ScoreViewer({
         );
     }
 
-    async function playMidi() {
+    async function playMidi(startScoreMs = 0) {
         stopPlayback();
         setPlaybackError("");
 
@@ -195,17 +190,30 @@ export default function ScoreViewer({
             }
 
             midiNotesRef.current = notes;
+            const midiDurationMs = midi.duration * 1000;
+            const timelineDurationMs = scoreTimeline.at(-1)?.time_ms ?? 0;
+            if (
+                !Number.isFinite(midiDurationMs) ||
+                !Number.isFinite(timelineDurationMs)
+            ) {
+                throw new Error("Cannot play MIDI because its duration is invalid.");
+            }
             midiDurationMsRef.current = Math.max(
-                midi.duration * 1000,
-                scoreTimeline.at(-1)?.time_ms ?? 0
+                midiDurationMs,
+                timelineDurationMs
             );
 
             const audioStartTime = audioContext.currentTime + 0.1;
-            syncEngine.start(audioStartTime, tempoPercent / 100);
+            playbackAudioStartTimeRef.current = audioStartTime;
+            syncEngine.start(
+                audioStartTime,
+                tempoPercent / 100,
+                startScoreMs
+            );
             scheduleMidiNotes(
                 audioContext,
                 notes,
-                0,
+                startScoreMs,
                 syncEngine,
                 oscillatorNodesRef.current
             );
@@ -216,7 +224,10 @@ export default function ScoreViewer({
                     return;
                 }
 
-                if (audioContext.currentTime < audioStartTime) {
+                if (
+                    audioContext.currentTime <
+                    playbackAudioStartTimeRef.current
+                ) {
                     animationFrameRef.current =
                         window.requestAnimationFrame(updatePlayback);
                     return;
@@ -285,6 +296,45 @@ export default function ScoreViewer({
                 error instanceof Error ? error.message : "Could not play MIDI."
             );
         }
+    }
+
+    function seekToMeasure(measureId) {
+        const measureEvent = measureEvents.get(measureId);
+        if (!measureEvent || !midiBase64) {
+            return;
+        }
+
+        const startScoreMs = measureEvent.time_ms;
+        if (!Number.isFinite(startScoreMs) || startScoreMs < 0) {
+            setPlaybackError("Cannot seek because this measure has invalid timing.");
+            return;
+        }
+        activePageRef.current = measureEvent.page;
+        setPage(measureEvent.page);
+        setCursorAnchor(null);
+        cursorSegmentRef.current = null;
+
+        const audioContext = audioContextRef.current;
+        if (!audioContext || audioContext.state === "closed") {
+            void playMidi(startScoreMs);
+            return;
+        }
+
+        const audioStartTime = audioContext.currentTime + 0.025;
+        playbackAudioStartTimeRef.current = audioStartTime;
+        stopScheduledNotes(audioContext, oscillatorNodesRef.current);
+        syncEngine.start(
+            audioStartTime,
+            tempoPercent / 100,
+            startScoreMs
+        );
+        scheduleMidiNotes(
+            audioContext,
+            midiNotesRef.current,
+            startScoreMs,
+            syncEngine,
+            oscillatorNodesRef.current
+        );
     }
 
     useEffect(() => () => {
@@ -420,18 +470,21 @@ export default function ScoreViewer({
     function handleScoreClick(event) {
         const note = event.target.closest("g.note[id]");
 
-        if (!note || !event.currentTarget.contains(note)) {
-            return;
+        if (note && event.currentTarget.contains(note)) {
+            setSelectedNote({
+                id: note.id,
+                pitch: note.dataset.pname?.toUpperCase() ?? "Unknown",
+                octave: note.dataset.oct ?? "Unknown",
+                duration: DURATIONS[note.dataset.dur] ?? "Unknown",
+                accidental: ACCIDENTALS[note.dataset.accid] ?? "None",
+                dots: Number(note.dataset.dots ?? 0)
+            });
         }
 
-        setSelectedNote({
-            id: note.id,
-            pitch: note.dataset.pname?.toUpperCase() ?? "Unknown",
-            octave: note.dataset.oct ?? "Unknown",
-            duration: DURATIONS[note.dataset.dur] ?? "Unknown",
-            accidental: ACCIDENTALS[note.dataset.accid] ?? "None",
-            dots: Number(note.dataset.dots ?? 0)
-        });
+        const measure = event.target.closest("g.measure[id]");
+        if (measure && event.currentTarget.contains(measure)) {
+            seekToMeasure(measure.id);
+        }
     }
 
     function changeZoom(amount) {
@@ -449,7 +502,13 @@ export default function ScoreViewer({
                     <button
                         className={`tool-btn ${isPlaying ? "primary" : ""}`}
                         disabled={!midiBase64}
-                        onClick={isPlaying ? stopPlayback : playMidi}
+                        onClick={() => {
+                            if (isPlaying) {
+                                stopPlayback();
+                            } else {
+                                void playMidi();
+                            }
+                        }}
                     >
                         <span aria-hidden="true">{isPlaying ? "■" : "▶"}</span>
                         {isPlaying ? "Stop" : "Play"}

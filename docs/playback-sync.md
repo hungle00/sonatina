@@ -15,4 +15,13 @@ the visible page and place a vertical cursor at the matching SVG element.
 Changing the tempo reanchors the mapping and reschedules the remaining MIDI.
 The tempo control ranges from 50% to 150%.
 
+Each timemap event also carries its measure ID. Clicking a Verovio SVG measure
+looks up that measure's start time, reanchors the sync engine, and schedules
+MIDI notes from that point. This works both while stopped and during playback;
+an active playback is rescheduled without creating a new audio context.
+
+Before scheduling Web Audio nodes, playback validates note timing, pitch,
+velocity, and computed audio values; invalid MIDI is reported in the player
+instead of passing non-finite values to an audio parameter.
+
 Note highlighting is not included.

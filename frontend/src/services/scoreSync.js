@@ -12,11 +12,16 @@ export class ScoreSyncEngine {
         this.started = false;
     }
 
-    start(audioAnchorSeconds, tempoRatio) {
-        this.scoreAnchorMs = 0;
+    start(audioAnchorSeconds, tempoRatio, scoreAnchorMs = 0) {
+        this.scoreAnchorMs = scoreAnchorMs;
         this.audioAnchorSeconds = audioAnchorSeconds;
         this.tempoRatio = tempoRatio;
-        this.nextEventIndex = 0;
+        this.nextEventIndex = this.timeline.findIndex(
+            event => event.time_ms >= scoreAnchorMs
+        );
+        if (this.nextEventIndex === -1) {
+            this.nextEventIndex = this.timeline.length;
+        }
         this.started = true;
     }
 
