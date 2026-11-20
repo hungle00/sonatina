@@ -6,7 +6,6 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from api.scores import read_musicxml, safe_musicxml_filename
-from editor.score.transpose import transpose_to_key
 from services.music_service import analyze_score, load_score
 from services.project_store import (
     ProjectRevisionConflictError,
@@ -14,6 +13,10 @@ from services.project_store import (
     ProjectStore,
 )
 from services.score_renderer import render_musicxml
+from services.score_transpose_service import (
+    MusicXMLTranspositionError,
+    transpose_musicxml,
+)
 
 router = APIRouter()
 project_store = ProjectStore()
@@ -168,28 +171,22 @@ def transpose_project(project_id: str, request: TransposeRequest):
 
     try:
         content = project_store.read_musicxml(project_id)
-        if content is None:
-            raise HTTPException(404, "Project not found")
-        with tempfile.NamedTemporaryFile(
-            suffix=Path(project["source_filename"]).suffix
-        ) as source_file:
-            source_file.write(content)
-            source_file.flush()
-            score = load_score(source_file.name)
-            transposed_score = transpose_to_key(score, request.target_key)
+    except (OSError, ValueError) as error:
+        raise HTTPException(500, "Could not read project MusicXML") from error
 
-            with tempfile.NamedTemporaryFile(
-                suffix=Path(project["source_filename"]).suffix
-            ) as output_file:
-                transposed_score.write("musicxml", fp=output_file.name)
-                output_file.seek(0)
-                transposed_content = output_file.read()
-    except HTTPException:
-        raise
-    except (TypeError, ValueError) as error:
+    if content is None:
+        raise HTTPException(404, "Project not found")
+
+    try:
+        transposed_content = transpose_musicxml(
+            content,
+            project["source_filename"],
+            request.target_key,
+        )
+    except MusicXMLTranspositionError as error:
         raise HTTPException(400, f"Could not transpose score: {error}") from error
-    except Exception as error:
-        raise HTTPException(400, "Could not transpose score") from error
+    except OSError as error:
+        raise HTTPException(500, "Could not write transposed MusicXML") from error
 
     score_data = _render_score_data(
         transposed_content,

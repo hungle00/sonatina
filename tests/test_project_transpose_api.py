@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from xml.etree import ElementTree
 
 from fastapi import HTTPException
 from music21 import converter
@@ -14,6 +15,18 @@ from services.project_store import ProjectStore
 MUSICXML = Path(__file__).with_name("fixtures").joinpath(
     "playback.musicxml"
 ).read_bytes()
+MUSICXML_WITH_WORK_TITLE = MUSICXML.replace(
+    b"  <part-list>",
+    b"  <work><work-title>A Whole New World</work-title></work>\n"
+    b"  <part-list>",
+    1,
+)
+MUSICXML_WITH_TEMP_MOVEMENT_TITLE = MUSICXML_WITH_WORK_TITLE.replace(
+    b"  <part-list>",
+    b"  <movement-title>tmpcg69tvua.musicxml</movement-title>\n"
+    b"  <part-list>",
+    1,
+)
 
 
 class TransposeProjectApiTests(unittest.TestCase):
@@ -26,7 +39,7 @@ class TransposeProjectApiTests(unittest.TestCase):
         self.project = projects_api.project_store.create_project(
             "playback",
             "playback.musicxml",
-            MUSICXML,
+            MUSICXML_WITH_WORK_TITLE,
         )
 
     def tearDown(self):
@@ -51,6 +64,11 @@ class TransposeProjectApiTests(unittest.TestCase):
         self.assertEqual(result["analysis"]["key"], "D major")
         transposed_path = projects_api.project_store.get_musicxml_path(
             self.project["id"]
+        )
+        xml_root = ElementTree.parse(transposed_path).getroot()
+        self.assertEqual(
+            xml_root.findtext("movement-title"),
+            "A Whole New World",
         )
         transposed_score = converter.parse(str(transposed_path))
         self.assertEqual(
@@ -80,6 +98,33 @@ class TransposeProjectApiTests(unittest.TestCase):
                 "current_revision"
             ],
             1,
+        )
+
+    def test_removes_legacy_temp_filename_movement_title(self):
+        project = projects_api.project_store.create_project(
+            "playback",
+            "playback.musicxml",
+            MUSICXML_WITH_TEMP_MOVEMENT_TITLE,
+        )
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            result = executor.submit(
+                projects_api.transpose_project,
+                project["id"],
+                projects_api.TransposeRequest(
+                    target_key="D",
+                    expected_revision=1,
+                ),
+            ).result()
+
+        snapshot_path = projects_api.project_store.get_musicxml_path(
+            project["id"]
+        )
+        xml_root = ElementTree.parse(snapshot_path).getroot()
+        self.assertEqual(result["project"]["current_revision"], 2)
+        self.assertEqual(
+            xml_root.findtext("movement-title"),
+            "A Whole New World",
         )
 
     def test_render_failure_does_not_save_revision(self):
