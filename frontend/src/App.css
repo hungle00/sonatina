@@ -886,8 +886,17 @@ input:focus-visible {
     border: 1px solid var(--border-color);
     border-radius: 6px;
     background: var(--bg-app);
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-size: 0.85rem;
+}
+
+.control-group select:disabled {
+    color: var(--text-secondary);
+    cursor: not-allowed;
+}
+
+.transpose-submit {
+    justify-content: center;
 }
 
 .editor-mode-options {

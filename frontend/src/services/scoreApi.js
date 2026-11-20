@@ -53,6 +53,22 @@ export function getProject(projectId) {
     return requestJson(`/api/projects/${encodeURIComponent(projectId)}`);
 }
 
+export function transposeProject(projectId, targetKey, expectedRevision) {
+    return requestJson(
+        `/api/projects/${encodeURIComponent(projectId)}/transpose`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                target_key: targetKey,
+                expected_revision: expectedRevision,
+            }),
+        }
+    );
+}
+
 export function deleteProject(projectId) {
     return requestJson(`/api/projects/${encodeURIComponent(projectId)}`, {
         method: "DELETE",
