@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 import ScoreProperties from "./ScoreProperties";
 import TransposeControls from "./TransposeControls";
 
@@ -8,11 +6,11 @@ export default function ScoreInspector({
     analysisError,
     isTransposing,
     transposeError,
+    activeTab,
+    onTabChange,
     onTranspose,
     onClose,
 }) {
-    const [activeTab, setActiveTab] = useState("properties");
-
     function handleTabKeyDown(event) {
         let nextTab;
 
@@ -26,7 +24,7 @@ export default function ScoreInspector({
 
         if (nextTab) {
             event.preventDefault();
-            setActiveTab(nextTab);
+            onTabChange(nextTab);
             document.getElementById(`${nextTab}-tab`)?.focus();
         }
     }
@@ -54,7 +52,7 @@ export default function ScoreInspector({
                     aria-selected={activeTab === "properties"}
                     tabIndex={activeTab === "properties" ? 0 : -1}
                     aria-controls="inspector-panel"
-                    onClick={() => setActiveTab("properties")}
+                    onClick={() => onTabChange("properties")}
                     onKeyDown={handleTabKeyDown}
                 >
                     Properties
@@ -69,7 +67,7 @@ export default function ScoreInspector({
                     aria-selected={activeTab === "editor-tools"}
                     tabIndex={activeTab === "editor-tools" ? 0 : -1}
                     aria-controls="inspector-panel"
-                    onClick={() => setActiveTab("editor-tools")}
+                    onClick={() => onTabChange("editor-tools")}
                     onKeyDown={handleTabKeyDown}
                 >
                     Editor Tools

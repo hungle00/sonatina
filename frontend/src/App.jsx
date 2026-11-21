@@ -13,6 +13,7 @@ import {
     getProject,
     listProjects,
     transposeProject,
+    undoProject,
 } from "./services/scoreApi";
 
 import "./App.css";
@@ -49,6 +50,8 @@ export default function App() {
     const [isDeletingProject, setIsDeletingProject] = useState(false);
     const [isTransposing, setIsTransposing] = useState(false);
     const [transposeError, setTransposeError] = useState("");
+    const [isUndoing, setIsUndoing] = useState(false);
+    const [undoError, setUndoError] = useState("");
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [projectsError, setProjectsError] = useState("");
@@ -79,6 +82,7 @@ export default function App() {
         function handlePopState() {
             setProjectLoadError(null);
             setTransposeError("");
+            setUndoError("");
             setRouteProjectId(projectIdFromLocation());
         }
 
@@ -117,6 +121,7 @@ export default function App() {
                 setAnalysisError(result.analysis_error || "");
                 setDeleteError("");
                 setTransposeError("");
+                setUndoError("");
             })
             .catch(loadError => {
                 if (!cancelled) {
@@ -150,6 +155,7 @@ export default function App() {
         window.history.pushState(null, "", projectPath(project));
         setProjectLoadError(null);
         setTransposeError("");
+        setUndoError("");
         setRouteProjectId(project.id);
     }
 
@@ -163,6 +169,7 @@ export default function App() {
         setAnalysisError("");
         setDeleteError("");
         setTransposeError("");
+        setUndoError("");
         setFile(null);
         setError("");
     }
@@ -192,7 +199,7 @@ export default function App() {
     }
 
     async function handleTranspose(targetKey) {
-        if (!currentProject || isTransposing) return;
+        if (!currentProject || isTransposing || isUndoing) return;
 
         const projectId = currentProject.id;
         setIsTransposing(true);
@@ -222,6 +229,42 @@ export default function App() {
         }
     }
 
+    async function handleUndo() {
+        if (
+            !currentProject?.can_undo ||
+            isUndoing ||
+            isTransposing
+        ) {
+            return;
+        }
+
+        const projectId = currentProject.id;
+        setIsUndoing(true);
+        setUndoError("");
+
+        try {
+            const result = await undoProject(
+                projectId,
+                currentProject.current_revision
+            );
+            setProjects(current => current.map(project =>
+                project.id === result.project.id ? result.project : project
+            ));
+            if (projectIdFromLocation() === projectId) {
+                setActiveProject(result.project);
+                setScore(result.score);
+                setAnalysis(result.analysis);
+                setAnalysisError(result.analysis_error || "");
+            }
+        } catch (requestError) {
+            if (projectIdFromLocation() === projectId) {
+                setUndoError(requestError.message);
+            }
+        } finally {
+            setIsUndoing(false);
+        }
+    }
+
     async function handleImport() {
         if (!file || isImporting) return;
 
@@ -239,6 +282,7 @@ export default function App() {
             setAnalysis(result.analysis);
             setAnalysisError(result.analysis_error || "");
             setTransposeError("");
+            setUndoError("");
             skipNextProjectLoad.current = result.project.id;
             setProjectLoadError(null);
             setIsImportModalOpen(false);
@@ -311,9 +355,12 @@ export default function App() {
                             isDeletingProject={isDeletingProject}
                             isTransposing={isTransposing}
                             transposeError={transposeError}
+                            isUndoing={isUndoing}
+                            undoError={undoError}
                             deleteError={deleteError}
                             onDelete={handleDeleteProject}
                             onTranspose={handleTranspose}
+                            onUndo={handleUndo}
                         />
                     )}
                 </main>

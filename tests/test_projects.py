@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -68,6 +69,112 @@ class ProjectStoreTests(unittest.TestCase):
                 2,
             )
 
+    def test_undo_appends_previous_content_and_tracks_undo_lineage(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            store = ProjectStore(Path(temporary_directory))
+            original = store.create_project(
+                "playback",
+                "playback.musicxml",
+                MUSICXML,
+            )
+            edited_once = MUSICXML.replace(b"note-one", b"note-two")
+            edited_twice = MUSICXML.replace(b"note-one", b"note-last")
+            revision_two = store.add_revision(
+                original["id"],
+                edited_once,
+                expected_revision=1,
+            )
+            store.add_revision(
+                original["id"],
+                edited_twice,
+                expected_revision=2,
+            )
+
+            self.assertEqual(
+                store.get_undo_content(original["id"], 3),
+                edited_once,
+            )
+            undone_once = store.undo_revision(original["id"], 3)
+            self.assertEqual(undone_once["current_revision"], 4)
+            self.assertTrue(undone_once["can_undo"])
+            self.assertEqual(store.read_musicxml(original["id"]), edited_once)
+
+            self.assertEqual(
+                store.get_undo_content(original["id"], 4),
+                MUSICXML,
+            )
+            undone_twice = store.undo_revision(original["id"], 4)
+            self.assertEqual(undone_twice["current_revision"], 5)
+            self.assertFalse(undone_twice["can_undo"])
+            self.assertEqual(store.read_musicxml(original["id"]), MUSICXML)
+            self.assertIn("revision-5.musicxml", undone_twice["musicxml_path"])
+            self.assertEqual(revision_two["current_revision"], 2)
+
+            with self.assertRaisesRegex(RuntimeError, "no previous"):
+                store.undo_revision(original["id"], 5)
+
+    def test_migrates_existing_revision_table(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            data_dir = Path(temporary_directory)
+            project_id = "legacy-project"
+            project_directory = data_dir / "musicxml" / project_id
+            project_directory.mkdir(parents=True)
+            first_snapshot = Path("musicxml") / project_id / "revision-1.musicxml"
+            second_snapshot = Path("musicxml") / project_id / "revision-2.musicxml"
+            (data_dir / first_snapshot).write_bytes(MUSICXML)
+            (data_dir / second_snapshot).write_bytes(b"edited")
+
+            connection = sqlite3.connect(data_dir / "projects.sqlite3")
+            connection.executescript(
+                """
+                CREATE TABLE projects (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    source_filename TEXT NOT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    current_revision INTEGER NOT NULL DEFAULT 1
+                );
+                CREATE TABLE score_revisions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    project_id TEXT NOT NULL,
+                    revision INTEGER NOT NULL,
+                    musicxml_path TEXT NOT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (project_id, revision)
+                );
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO projects (id, name, source_filename, current_revision)
+                VALUES (?, ?, ?, ?)
+                """,
+                (project_id, "legacy", "score.musicxml", 2),
+            )
+            connection.executemany(
+                """
+                INSERT INTO score_revisions (
+                    project_id, revision, musicxml_path
+                )
+                VALUES (?, ?, ?)
+                """,
+                [
+                    (project_id, 1, first_snapshot.as_posix()),
+                    (project_id, 2, second_snapshot.as_posix()),
+                ],
+            )
+            connection.commit()
+            connection.close()
+
+            store = ProjectStore(data_dir)
+
+            self.assertTrue(store.get_project(project_id)["can_undo"])
+            self.assertEqual(
+                store.get_undo_content(project_id, expected_revision=2),
+                MUSICXML,
+            )
+
     def test_missing_project_has_no_snapshot(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             store = ProjectStore(Path(temporary_directory))
@@ -84,12 +191,23 @@ class ProjectStoreTests(unittest.TestCase):
                 "playback.musicxml",
                 MUSICXML,
             )
+            store.add_revision(
+                project["id"],
+                MUSICXML.replace(b"note-one", b"note-two"),
+                expected_revision=1,
+            )
             snapshot_path = store.get_musicxml_path(project["id"])
+            first_snapshot_path = (
+                store.musicxml_dir
+                / project["id"]
+                / "revision-1.musicxml"
+            )
             project_directory = snapshot_path.parent
 
             self.assertTrue(store.delete_project(project["id"]))
             self.assertIsNone(store.get_project(project["id"]))
             self.assertEqual(store.list_projects(), [])
             self.assertFalse(snapshot_path.exists())
+            self.assertFalse(first_snapshot_path.exists())
             self.assertFalse(project_directory.exists())
             self.assertFalse(store.delete_project(project["id"]))

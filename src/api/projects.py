@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from api.scores import read_musicxml, safe_musicxml_filename
 from services.music_service import analyze_score, load_score
 from services.project_store import (
+    ProjectHasNoUndoError,
     ProjectRevisionConflictError,
     ProjectSnapshotCleanupError,
     ProjectStore,
@@ -24,6 +25,10 @@ project_store = ProjectStore()
 
 class TransposeRequest(BaseModel):
     target_key: str = Field(min_length=1, max_length=8)
+    expected_revision: int | None = Field(default=None, ge=1)
+
+
+class UndoRequest(BaseModel):
     expected_revision: int | None = Field(default=None, ge=1)
 
 
@@ -63,19 +68,25 @@ def _render_score_data(content: bytes, filename: str) -> dict:
     }
 
 
+def _project_summary(project: dict) -> dict:
+    project_summary = {
+        key: project[key]
+        for key in (
+            "id",
+            "name",
+            "source_filename",
+            "created_at",
+            "updated_at",
+            "current_revision",
+        )
+    }
+    project_summary["can_undo"] = bool(project["can_undo"])
+    return project_summary
+
+
 def _project_response(project: dict, score_data: dict) -> dict:
     return {
-        "project": {
-            key: project[key]
-            for key in (
-                "id",
-                "name",
-                "source_filename",
-                "created_at",
-                "updated_at",
-                "current_revision",
-            )
-        },
+        "project": _project_summary(project),
         **score_data,
     }
 
@@ -111,17 +122,7 @@ async def create_project(file: UploadFile = File(...)):
     title = Path(filename).stem.strip() or "Untitled score"
     project = project_store.create_project(title, filename, content)
     return {
-        "project": {
-            key: project[key]
-            for key in (
-                "id",
-                "name",
-                "source_filename",
-                "created_at",
-                "updated_at",
-                "current_revision",
-            )
-        },
+        "project": _project_summary(project),
         "score": {
             "filename": filename,
             "page_count": len(pages),
@@ -205,6 +206,67 @@ def transpose_project(project_id: str, request: TransposeRequest):
         ) from error
     except (OSError, ValueError) as error:
         raise HTTPException(500, "Could not save score revision") from error
+
+    if updated_project is None:
+        raise HTTPException(404, "Project not found")
+    return _project_response(updated_project, score_data)
+
+
+@router.post("/projects/{project_id}/undo")
+def undo_project(
+    project_id: str,
+    request: UndoRequest | None = None,
+):
+    project = project_store.get_project(project_id)
+    if project is None:
+        raise HTTPException(404, "Project not found")
+
+    expected_revision = (
+        request.expected_revision
+        if request and request.expected_revision is not None
+        else project["current_revision"]
+    )
+    if expected_revision != project["current_revision"]:
+        raise HTTPException(
+            409,
+            f"Project is at revision {project['current_revision']}; reload it "
+            "before undoing",
+        )
+
+    try:
+        previous_content = project_store.get_undo_content(
+            project_id,
+            expected_revision,
+        )
+    except ProjectRevisionConflictError as error:
+        raise HTTPException(
+            409,
+            f"{error}. Reload the project before undoing again.",
+        ) from error
+    except (OSError, ValueError, RuntimeError) as error:
+        raise HTTPException(500, "Could not read previous score revision") from error
+
+    if previous_content is None:
+        raise HTTPException(409, "There is no previous revision to undo")
+
+    score_data = _render_score_data(
+        previous_content,
+        project["source_filename"],
+    )
+    try:
+        updated_project = project_store.undo_revision(
+            project_id,
+            expected_revision,
+        )
+    except ProjectHasNoUndoError as error:
+        raise HTTPException(409, str(error)) from error
+    except ProjectRevisionConflictError as error:
+        raise HTTPException(
+            409,
+            f"{error}. Reload the project before undoing again.",
+        ) from error
+    except (OSError, ValueError, RuntimeError) as error:
+        raise HTTPException(500, "Could not save undo revision") from error
 
     if updated_project is None:
         raise HTTPException(404, "Project not found")

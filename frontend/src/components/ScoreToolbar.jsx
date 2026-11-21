@@ -12,7 +12,13 @@ export default function ScoreToolbar({
     onZoomChange,
     inspectorVisible,
     onInspectorToggle,
+    editorMode,
+    canUndo,
+    isUndoing,
+    isTransposing,
+    onUndo,
     playbackError,
+    undoError,
 }) {
     function changeZoom(amount) {
         onZoomChange(current => Math.min(200, Math.max(50, current + amount)));
@@ -114,6 +120,24 @@ export default function ScoreToolbar({
                         Reset
                     </button>
                 </div>
+                {editorMode && (
+                    <button
+                        className="tool-btn undo-button"
+                        disabled={
+                            !canUndo ||
+                            isUndoing ||
+                            isTransposing
+                        }
+                        onClick={onUndo}
+                        title={
+                            canUndo
+                                ? "Undo the latest score edit"
+                                : "No score edits to undo"
+                        }
+                    >
+                        {isUndoing ? "Undoing..." : "↶ Undo"}
+                    </button>
+                )}
                 <button
                     className={`tool-btn inspector-button ${
                         inspectorVisible ? "selected" : ""
@@ -129,6 +153,11 @@ export default function ScoreToolbar({
             {playbackError && (
                 <span className="playback-error" role="alert">
                     {playbackError}
+                </span>
+            )}
+            {undoError && (
+                <span className="playback-error" role="alert">
+                    {undoError}
                 </span>
             )}
         </div>

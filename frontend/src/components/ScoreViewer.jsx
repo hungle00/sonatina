@@ -16,10 +16,15 @@ export default function ScoreViewer({
     isTransposing,
     transposeError,
     onTranspose,
+    canUndo,
+    isUndoing,
+    undoError,
+    onUndo,
 }) {
     const [page, setPage] = useState(0);
     const [zoom, setZoom] = useState(100);
     const [inspectorVisible, setInspectorVisible] = useState(false);
+    const [inspectorTab, setInspectorTab] = useState("properties");
     const scoreContainerRef = useRef(null);
     const scorePageRef = useRef(null);
     const scoreSvgRef = useRef(null);
@@ -224,10 +229,18 @@ export default function ScoreViewer({
                 zoom={zoom}
                 onZoomChange={setZoom}
                 inspectorVisible={inspectorVisible}
+                editorMode={
+                    inspectorVisible && inspectorTab === "editor-tools"
+                }
+                canUndo={canUndo}
+                isUndoing={isUndoing}
+                isTransposing={isTransposing}
                 onInspectorToggle={() =>
                     setInspectorVisible(visible => !visible)
                 }
+                onUndo={onUndo}
                 playbackError={playbackError}
+                undoError={undoError}
             />
             <div
                 className={`viewer-content ${
@@ -236,7 +249,7 @@ export default function ScoreViewer({
             >
                 <div
                     className="score-viewer-stage"
-                    aria-busy={isTransposing}
+                    aria-busy={isTransposing || isUndoing}
                 >
                     <ScoreCanvas
                         containerRef={scoreContainerRef}
@@ -249,8 +262,14 @@ export default function ScoreViewer({
                         isPlaying={isPlaying}
                         cursorVisible={cursorAnchor?.page === page}
                     />
-                    {isTransposing && (
-                        <LoadingOverlay label="Transposing score..." />
+                    {(isTransposing || isUndoing) && (
+                        <LoadingOverlay
+                            label={
+                                isUndoing
+                                    ? "Undoing score edit..."
+                                    : "Transposing score..."
+                            }
+                        />
                     )}
                 </div>
                 {inspectorVisible && (
@@ -259,6 +278,8 @@ export default function ScoreViewer({
                         analysisError={analysisError}
                         isTransposing={isTransposing}
                         transposeError={transposeError}
+                        activeTab={inspectorTab}
+                        onTabChange={setInspectorTab}
                         onTranspose={onTranspose}
                         onClose={() => setInspectorVisible(false)}
                     />

@@ -10,9 +10,12 @@ export default function ProjectDetail({
     isDeletingProject,
     isTransposing,
     transposeError,
+    isUndoing,
+    undoError,
     deleteError,
     onDelete,
     onTranspose,
+    onUndo,
 }) {
     return (
         <section className="detail-page">
@@ -62,6 +65,10 @@ export default function ProjectDetail({
                     isTransposing={isTransposing}
                     transposeError={transposeError}
                     onTranspose={onTranspose}
+                    canUndo={project.can_undo}
+                    isUndoing={isUndoing}
+                    undoError={undoError}
+                    onUndo={onUndo}
                 />
             </section>
         </section>

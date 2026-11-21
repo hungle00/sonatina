@@ -149,6 +149,71 @@ class TransposeProjectApiTests(unittest.TestCase):
             1,
         )
 
+    def test_undo_restores_previous_score_and_creates_revision(self):
+        transposed = projects_api.transpose_project(
+            self.project["id"],
+            projects_api.TransposeRequest(
+                target_key="D",
+                expected_revision=1,
+            ),
+        )
+
+        result = projects_api.undo_project(
+            self.project["id"],
+            projects_api.UndoRequest(
+                expected_revision=transposed["project"]["current_revision"],
+            ),
+        )
+
+        self.assertEqual(result["project"]["current_revision"], 3)
+        self.assertFalse(result["project"]["can_undo"])
+        self.assertEqual(result["analysis"]["key"], "G major")
+        self.assertEqual(
+            projects_api.project_store.read_musicxml(self.project["id"]),
+            MUSICXML_WITH_WORK_TITLE,
+        )
+
+    def test_undo_without_a_previous_revision_returns_conflict(self):
+        with self.assertRaises(HTTPException) as raised:
+            projects_api.undo_project(
+                self.project["id"],
+                projects_api.UndoRequest(expected_revision=1),
+            )
+
+        self.assertEqual(raised.exception.status_code, 409)
+        self.assertEqual(
+            projects_api.project_store.get_project(self.project["id"])[
+                "current_revision"
+            ],
+            1,
+        )
+
+    def test_undo_render_failure_does_not_create_revision(self):
+        projects_api.transpose_project(
+            self.project["id"],
+            projects_api.TransposeRequest(
+                target_key="D",
+                expected_revision=1,
+            ),
+        )
+        with patch.object(
+            projects_api,
+            "_render_score_data",
+            side_effect=HTTPException(500, "render failed"),
+        ):
+            with self.assertRaises(HTTPException):
+                projects_api.undo_project(
+                    self.project["id"],
+                    projects_api.UndoRequest(expected_revision=2),
+                )
+
+        self.assertEqual(
+            projects_api.project_store.get_project(self.project["id"])[
+                "current_revision"
+            ],
+            2,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

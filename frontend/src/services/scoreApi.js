@@ -69,6 +69,21 @@ export function transposeProject(projectId, targetKey, expectedRevision) {
     );
 }
 
+export function undoProject(projectId, expectedRevision) {
+    return requestJson(
+        `/api/projects/${encodeURIComponent(projectId)}/undo`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                expected_revision: expectedRevision,
+            }),
+        }
+    );
+}
+
 export function deleteProject(projectId) {
     return requestJson(`/api/projects/${encodeURIComponent(projectId)}`, {
         method: "DELETE",
