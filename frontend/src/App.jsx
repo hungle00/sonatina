@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 
-import FileDropzone from "./components/FileDropzone";
-import ScoreViewer from "./components/ScoreViewer";
+import AppHeader from "./components/AppHeader";
+import ImportScoreModal from "./components/ImportScoreModal";
+import LoadingSpinner from "./components/LoadingSpinner";
+import ProjectDetail from "./components/ProjectDetail";
+import ProjectLibrary from "./components/ProjectLibrary";
+import WorkspaceSidebar from "./components/WorkspaceSidebar";
 
 import {
     createProject,
     deleteProject,
     getProject,
     listProjects,
-    projectExportUrl,
     transposeProject,
 } from "./services/scoreApi";
 
@@ -31,19 +34,6 @@ function projectSlug(name) {
 
 function projectPath(project) {
     return `/projects/${encodeURIComponent(project.id)}/${projectSlug(project.name)}`;
-}
-
-function projectDate(value) {
-    if (!value) return "";
-    const date = new Date(`${value.replace(" ", "T")}Z`);
-    if (Number.isNaN(date.getTime())) return "";
-    return new Intl.DateTimeFormat(undefined, {
-        month: "short",
-        day: "numeric",
-        year: date.getFullYear() === new Date().getFullYear()
-            ? undefined
-            : "numeric",
-    }).format(date);
 }
 
 export default function App() {
@@ -150,6 +140,11 @@ export default function App() {
     const currentProject = activeProject?.id === routeProjectId
         ? activeProject
         : null;
+
+    function openImportModal() {
+        setError("");
+        setIsImportModalOpen(true);
+    }
 
     function openProject(project) {
         window.history.pushState(null, "", projectPath(project));
@@ -261,186 +256,41 @@ export default function App() {
     return (
         <div className={`app-shell ${routeProjectId ? "project-view" : ""}`}>
             {!routeProjectId && (
-                <aside className="sidebar">
-                    <button className="brand" onClick={showProjects}>
-                        <span className="brand-icon">♪</span>
-                        <span>Sonatina</span>
-                    </button>
-
-                    <button
-                        className="btn-primary sidebar-import"
-                        onClick={() => {
-                            setError("");
-                            setIsImportModalOpen(true);
-                        }}
-                    >
-                        <span aria-hidden="true">+</span> Import Score
-                    </button>
-
-                    <nav className="sidebar-section" aria-label="Workspace">
-                        <div className="sidebar-label">Workspace</div>
-                        <button
-                            className={`nav-item ${
-                                !routeProjectId ? "active" : ""
-                            }`}
-                            onClick={showProjects}
-                        >
-                            <span>All Scores</span>
-                            <span className="nav-count">{projects.length}</span>
-                        </button>
-                        <button className="nav-item nav-placeholder" disabled>
-                            <span>Recent Edits</span>
-                        </button>
-
-                        <div className="sidebar-label quick-open-label">
-                            Quick Open
-                        </div>
-                        {projects.slice(0, 5).map(project => (
-                            <button
-                                className={`nav-item quick-open-item ${
-                                    project.id === routeProjectId ? "active" : ""
-                                }`}
-                                key={project.id}
-                                title={project.name}
-                                onClick={() => openProject(project)}
-                            >
-                                <span>{project.name}</span>
-                            </button>
-                        ))}
-                        {!isLoadingProjects && projects.length === 0 && (
-                            <p className="sidebar-empty">No projects yet</p>
-                        )}
-                    </nav>
-                    <div className="sidebar-footer">Sonatina</div>
-                </aside>
+                <WorkspaceSidebar
+                    projects={projects}
+                    isLoadingProjects={isLoadingProjects}
+                    routeProjectId={routeProjectId}
+                    onShowProjects={showProjects}
+                    onOpenProject={openProject}
+                    onImport={openImportModal}
+                />
             )}
-
             <div className="main-content">
-                <header className="app-header">
-                    <div className="breadcrumb">
-                        {routeProjectId ? (
-                            <button
-                                className="back-to-dashboard"
-                                onClick={showProjects}
-                            >
-                                <span aria-hidden="true">←</span>
-                                Dashboard
-                            </button>
-                        ) : (
-                            <button onClick={showProjects}>Music Toolkit</button>
-                        )}
-                        {!routeProjectId && <span aria-hidden="true">/</span>}
-                        {currentProject ? (
-                            <strong title={currentProject.name}>
-                                {currentProject.name}
-                            </strong>
-                        ) : (
-                            <strong>Score Library</strong>
-                        )}
-                    </div>
-                    <label className="search-wrap">
-                        <span className="search-icon" aria-hidden="true">⌕</span>
-                        <input
-                            className="search-box"
-                            type="search"
-                            value={search}
-                            onChange={event => setSearch(event.target.value)}
-                            placeholder="Search scores..."
-                            aria-label="Search scores"
-                        />
-                    </label>
-                </header>
-
+                <AppHeader
+                    routeProjectId={routeProjectId}
+                    currentProject={currentProject}
+                    search={search}
+                    onSearchChange={setSearch}
+                    onShowProjects={showProjects}
+                />
                 <main className="workspace">
                     {!routeProjectId && (
-                        <>
-                            <div className="section-header">
-                                <div>
-                                    <h1>Projects</h1>
-                                    <p className="section-description">
-                                        Your music scores, all in one place.
-                                    </p>
-                                </div>
-                                <button
-                                    className="btn-primary"
-                                    onClick={() => {
-                                        setError("");
-                                        setIsImportModalOpen(true);
-                                    }}
-                                >
-                                    <span aria-hidden="true">+</span> Import Score
-                                </button>
-                            </div>
-
-                            {projectsError && (
-                                <p className="error-message">{projectsError}</p>
-                            )}
-                            {isLoadingProjects ? (
-                                <p className="library-message">Loading projects...</p>
-                            ) : visibleProjects.length ? (
-                                <div className="project-grid">
-                                    {visibleProjects.map(project => (
-                                        <button
-                                            className="project-card"
-                                            key={project.id}
-                                            onClick={() => openProject(project)}
-                                        >
-                                            <div className="card-preview" aria-hidden="true">
-                                                <span className="badge-rev">
-                                                    Rev {project.current_revision}
-                                                </span>
-                                                <div className="staff-lines" />
-                                                <div className="staff-lines" />
-                                                <div className="staff-lines" />
-                                            </div>
-                                            <div className="card-body">
-                                                <h2 className="card-title">
-                                                    {project.name}
-                                                </h2>
-                                                <div className="card-meta">
-                                                    <span title={project.source_filename}>
-                                                        {project.source_filename}
-                                                    </span>
-                                                    <span>{projectDate(project.updated_at)}</span>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="empty-library">
-                                    <span className="empty-library-icon" aria-hidden="true">
-                                        ♪
-                                    </span>
-                                    <h2>
-                                        {search.trim()
-                                            ? "No matching scores"
-                                            : "Your score library is empty"}
-                                    </h2>
-                                    <p>
-                                        {search.trim()
-                                            ? "Try another search."
-                                            : "Import a MusicXML file to create your first project."}
-                                    </p>
-                                    {!search.trim() && (
-                                        <button
-                                            className="btn-primary"
-                                            onClick={() => setIsImportModalOpen(true)}
-                                        >
-                                            <span aria-hidden="true">+</span> Import Score
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </>
+                        <ProjectLibrary
+                            visibleProjects={visibleProjects}
+                            search={search}
+                            isLoadingProjects={isLoadingProjects}
+                            projectsError={projectsError}
+                            onOpenProject={openProject}
+                            onImport={openImportModal}
+                        />
                     )}
-
                     {routeProjectId &&
                         !currentProject &&
                         projectLoadError?.id !== routeProjectId && (
-                            <p className="library-message">Loading project...</p>
+                            <div className="project-loading">
+                                <LoadingSpinner label="Loading project..." />
+                            </div>
                         )}
-
                     {routeProjectId &&
                         projectLoadError?.id === routeProjectId && (
                             <section className="project-error">
@@ -452,122 +302,38 @@ export default function App() {
                                 </button>
                             </section>
                         )}
-
                     {currentProject && score && (
-                        <section className="detail-page">
-                            <div className="detail-heading">
-                                <div>
-                                    <div className="detail-title-row">
-                                        <h1>{currentProject.name}</h1>
-                                        <span className="revision-badge">
-                                            Revision {currentProject.current_revision}
-                                        </span>
-                                    </div>
-                                    <p className="detail-filename">
-                                        {currentProject.source_filename}
-                                    </p>
-                                </div>
-                                <div className="detail-actions">
-                                    <a
-                                        className="btn-primary export-button"
-                                        href={projectExportUrl(currentProject.id)}
-                                    >
-                                        <span aria-hidden="true">↓</span>
-                                        Export MusicXML
-                                    </a>
-                                    <button
-                                        className="btn-danger delete-project-button"
-                                        disabled={isDeletingProject}
-                                        onClick={handleDeleteProject}
-                                    >
-                                        <span aria-hidden="true">⌫</span>
-                                        {isDeletingProject ? "Deleting..." : "Delete"}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {deleteError && (
-                                <p className="error-message" role="alert">
-                                    {deleteError}
-                                </p>
-                            )}
-                            <section className="score-section">
-                                <ScoreViewer
-                                    key={`${currentProject.id}-${currentProject.current_revision}`}
-                                    pages={score.pages}
-                                    midiBase64={score.midi_base64}
-                                    timeline={score.timeline}
-                                    analysis={analysis}
-                                    analysisError={analysisError}
-                                    isTransposing={isTransposing}
-                                    transposeError={transposeError}
-                                    onTranspose={handleTranspose}
-                                />
-                            </section>
-                        </section>
+                        <ProjectDetail
+                            project={currentProject}
+                            score={score}
+                            analysis={analysis}
+                            analysisError={analysisError}
+                            isDeletingProject={isDeletingProject}
+                            isTransposing={isTransposing}
+                            transposeError={transposeError}
+                            deleteError={deleteError}
+                            onDelete={handleDeleteProject}
+                            onTranspose={handleTranspose}
+                        />
                     )}
                 </main>
             </div>
-
             {isImportModalOpen && (
-                <div
-                    className="modal-overlay"
-                    onClick={() => !isImporting && setIsImportModalOpen(false)}
-                >
-                    <section
-                        className="modal-box import-modal"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="import-modal-title"
-                        onClick={event => event.stopPropagation()}
-                    >
-                        <div className="modal-header">
-                            <h2 id="import-modal-title">Import a score</h2>
-                            <button
-                                className="btn-close"
-                                aria-label="Close import dialog"
-                                disabled={isImporting}
-                                onClick={() => setIsImportModalOpen(false)}
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <FileDropzone
-                            file={file}
-                            onFileSelect={selectedFile => {
-                                setFile(selectedFile);
-                                setError("");
-                            }}
-                            onRemove={() => {
-                                setFile(null);
-                                setError("");
-                            }}
-                            disabled={isImporting}
-                        />
-                        <p className="modal-hint">
-                            Saved as Revision 1 when imported.
-                        </p>
-                        {error && <p className="error-message">{error}</p>}
-
-                        <div className="modal-actions">
-                            <button
-                                className="btn-ghost"
-                                disabled={isImporting}
-                                onClick={() => setIsImportModalOpen(false)}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="btn-primary"
-                                disabled={!file || isImporting}
-                                onClick={handleImport}
-                            >
-                                {isImporting ? "Importing..." : "Import & Save Project"}
-                            </button>
-                        </div>
-                    </section>
-                </div>
+                <ImportScoreModal
+                    file={file}
+                    error={error}
+                    isImporting={isImporting}
+                    onClose={() => setIsImportModalOpen(false)}
+                    onImport={handleImport}
+                    onFileSelect={selectedFile => {
+                        setFile(selectedFile);
+                        setError("");
+                    }}
+                    onRemoveFile={() => {
+                        setFile(null);
+                        setError("");
+                    }}
+                />
             )}
         </div>
     );

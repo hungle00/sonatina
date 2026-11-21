@@ -1,74 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Midi } from "@tonejs/midi";
 import DOMPurify from "dompurify";
 
+import ScoreCanvas from "./ScoreCanvas";
 import ScoreInspector from "./ScoreInspector";
-import { createMidiNoteSchedules } from "../services/midiPlayback";
-import { ScoreSyncEngine } from "../services/scoreSync";
-
-const EMPTY_TIMELINE = [];
-
-const DURATIONS = {
-    "1": "Whole note",
-    "2": "Half note",
-    "4": "Quarter note",
-    "8": "Eighth note",
-    "16": "Sixteenth note",
-    "32": "Thirty-second note",
-    "64": "Sixty-fourth note",
-    "128": "128th note"
-};
-
-const ACCIDENTALS = {
-    s: "Sharp",
-    f: "Flat",
-    ss: "Double sharp",
-    ff: "Double flat",
-    n: "Natural"
-};
-
-function scheduleMidiNotes(audioContext, notes, fromScoreMs, syncEngine, nodes) {
-    const schedules = createMidiNoteSchedules(
-        notes,
-        fromScoreMs,
-        syncEngine,
-        audioContext.currentTime
-    );
-
-    for (const { noteStart, noteEnd, volume, frequency } of schedules) {
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        const scheduledNote = { oscillator, gain };
-
-        oscillator.type = "triangle";
-        oscillator.frequency.value = frequency;
-        gain.gain.setValueAtTime(0.0001, noteStart);
-        gain.gain.exponentialRampToValueAtTime(volume, noteStart + 0.01);
-        gain.gain.setValueAtTime(
-            volume,
-            Math.max(noteStart + 0.01, noteEnd - 0.03)
-        );
-        gain.gain.exponentialRampToValueAtTime(0.0001, noteEnd + 0.03);
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-        oscillator.onended = () => nodes.delete(scheduledNote);
-        nodes.add(scheduledNote);
-        oscillator.start(noteStart);
-        oscillator.stop(noteEnd + 0.04);
-    }
-}
-
-function stopScheduledNotes(audioContext, nodes) {
-    const stopTime = audioContext.currentTime;
-
-    for (const { oscillator, gain } of nodes) {
-        gain.gain.cancelScheduledValues(stopTime);
-        gain.gain.setTargetAtTime(0.0001, stopTime, 0.005);
-        oscillator.stop(stopTime + 0.02);
-    }
-
-    nodes.clear();
-}
+import ScoreToolbar from "./ScoreToolbar";
+import { LoadingOverlay } from "./LoadingSpinner";
+import useMidiPlayback from "../hooks/useMidiPlayback";
 
 export default function ScoreViewer({
     pages,
@@ -80,40 +17,15 @@ export default function ScoreViewer({
     transposeError,
     onTranspose,
 }) {
-    const scoreTimeline = Array.isArray(timeline) ? timeline : EMPTY_TIMELINE;
-    const syncEngine = useMemo(
-        () => new ScoreSyncEngine(scoreTimeline),
-        [scoreTimeline]
-    );
-    const measureEvents = useMemo(
-        () => new Map(
-            scoreTimeline
-                .filter(event => event.measure_id)
-                .map(event => [event.measure_id, event])
-        ),
-        [scoreTimeline]
-    );
     const [page, setPage] = useState(0);
     const [zoom, setZoom] = useState(100);
-    const [selectedNote, setSelectedNote] = useState(null);
     const [inspectorVisible, setInspectorVisible] = useState(false);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [playbackError, setPlaybackError] = useState("");
-    const [tempoPercent, setTempoPercent] = useState(100);
-    const [cursorAnchor, setCursorAnchor] = useState(null);
-    const audioContextRef = useRef(null);
-    const animationFrameRef = useRef(null);
-    const playbackAudioStartTimeRef = useRef(0);
-    const oscillatorNodesRef = useRef(new Set());
     const scoreContainerRef = useRef(null);
     const scorePageRef = useRef(null);
     const scoreSvgRef = useRef(null);
     const cursorElementRef = useRef(null);
     const cursorSegmentRef = useRef(null);
-    const activePageRef = useRef(page);
     const previousPageRef = useRef(page);
-    const midiNotesRef = useRef([]);
-    const midiDurationMsRef = useRef(0);
 
     const svg = useMemo(() => {
         if (!pages?.[page]) return "";
@@ -121,238 +33,56 @@ export default function ScoreViewer({
         return DOMPurify.sanitize(pages[page], {
             USE_PROFILES: {
                 svg: true,
-                svgFilters: true
+                svgFilters: true,
             },
-            ADD_TAGS: ["use"]
+            ADD_TAGS: ["use"],
         });
     }, [pages, page]);
 
-    function stopPlayback() {
-        window.cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-
-        const audioContext = audioContextRef.current;
-        audioContextRef.current = null;
-        syncEngine.reset();
-
-        if (audioContext && audioContext.state !== "closed") {
-            stopScheduledNotes(audioContext, oscillatorNodesRef.current);
-            void audioContext.close();
-        }
-
-        setIsPlaying(false);
-        setCursorAnchor(null);
-        cursorSegmentRef.current = null;
-    }
-
-    function changeTempo(nextTempoPercent) {
-        setTempoPercent(nextTempoPercent);
-
-        const audioContext = audioContextRef.current;
-        if (!audioContext || audioContext.state === "closed") {
+    function updatePlaybackCursor(scoreTimeMs) {
+        const cursorSegment = cursorSegmentRef.current;
+        if (!cursorSegment || cursorSegment.page !== page) {
             return;
         }
 
-        const currentScoreMs = syncEngine.setTempo(
-            audioContext.currentTime,
-            nextTempoPercent / 100
-        );
-        stopScheduledNotes(audioContext, oscillatorNodesRef.current);
-        scheduleMidiNotes(
-            audioContext,
-            midiNotesRef.current,
-            currentScoreMs,
-            syncEngine,
-            oscillatorNodesRef.current
-        );
-    }
+        const duration =
+            cursorSegment.endTimeMs - cursorSegment.startTimeMs;
+        const progress = duration > 0
+            ? Math.max(
+                0,
+                Math.min(
+                    1,
+                    (scoreTimeMs - cursorSegment.startTimeMs) / duration
+                )
+            )
+            : 1;
+        const left =
+            cursorSegment.startLeft +
+            (cursorSegment.endLeft - cursorSegment.startLeft) * progress;
 
-    async function playMidi(startScoreMs = 0) {
-        stopPlayback();
-        setPlaybackError("");
-
-        try {
-            const binary = window.atob(midiBase64);
-            const midiBytes = Uint8Array.from(
-                binary,
-                character => character.charCodeAt(0)
-            );
-            const midi = new Midi(midiBytes);
-            const notes = midi.tracks.flatMap(track => track.notes);
-
-            if (!notes.length) {
-                throw new Error("This score has no playable notes.");
-            }
-
-            const audioContext = new window.AudioContext();
-            audioContextRef.current = audioContext;
-            await audioContext.resume();
-
-            if (audioContextRef.current !== audioContext) {
-                return;
-            }
-
-            midiNotesRef.current = notes;
-            const midiDurationMs = midi.duration * 1000;
-            const timelineDurationMs = scoreTimeline.at(-1)?.time_ms ?? 0;
-            if (
-                !Number.isFinite(midiDurationMs) ||
-                !Number.isFinite(timelineDurationMs)
-            ) {
-                throw new Error("Cannot play MIDI because its duration is invalid.");
-            }
-            midiDurationMsRef.current = Math.max(
-                midiDurationMs,
-                timelineDurationMs
-            );
-
-            const audioStartTime = audioContext.currentTime + 0.1;
-            playbackAudioStartTimeRef.current = audioStartTime;
-            syncEngine.start(
-                audioStartTime,
-                tempoPercent / 100,
-                startScoreMs
-            );
-            scheduleMidiNotes(
-                audioContext,
-                notes,
-                startScoreMs,
-                syncEngine,
-                oscillatorNodesRef.current
-            );
-            setIsPlaying(true);
-
-            const updatePlayback = () => {
-                if (audioContextRef.current !== audioContext) {
-                    return;
-                }
-
-                if (
-                    audioContext.currentTime <
-                    playbackAudioStartTimeRef.current
-                ) {
-                    animationFrameRef.current =
-                        window.requestAnimationFrame(updatePlayback);
-                    return;
-                }
-
-                const scoreTimeMs = syncEngine.scoreTimeAt(
-                    audioContext.currentTime
-                );
-
-                if (scoreTimeMs >= midiDurationMsRef.current) {
-                    stopPlayback();
-                    return;
-                }
-
-                for (const event of syncEngine.takeEventsThrough(scoreTimeMs)) {
-                    if (
-                        Number.isInteger(event.page) &&
-                        event.page >= 0 &&
-                        event.page < pages.length
-                    ) {
-                        activePageRef.current = event.page;
-                        setPage(event.page);
-                    }
-
-                    if (event.cursor_id) {
-                        setCursorAnchor(event);
-                    }
-                }
-
-                const cursorSegment = cursorSegmentRef.current;
-                if (
-                    cursorSegment &&
-                    cursorSegment.page === activePageRef.current
-                ) {
-                    const duration =
-                        cursorSegment.endTimeMs - cursorSegment.startTimeMs;
-                    const progress = duration > 0
-                        ? Math.max(
-                            0,
-                            Math.min(
-                                1,
-                                (scoreTimeMs - cursorSegment.startTimeMs) /
-                                    duration
-                            )
-                        )
-                        : 1;
-                    const left =
-                        cursorSegment.startLeft +
-                        (cursorSegment.endLeft - cursorSegment.startLeft) *
-                            progress;
-
-                    if (cursorElementRef.current) {
-                        cursorElementRef.current.style.left = `${left}px`;
-                    }
-                }
-
-                animationFrameRef.current =
-                    window.requestAnimationFrame(updatePlayback);
-            };
-
-            animationFrameRef.current =
-                window.requestAnimationFrame(updatePlayback);
-        } catch (error) {
-            stopPlayback();
-            setPlaybackError(
-                error instanceof Error ? error.message : "Could not play MIDI."
-            );
+        if (cursorElementRef.current) {
+            cursorElementRef.current.style.left = `${left}px`;
         }
     }
 
-    function seekToMeasure(measureId) {
-        const measureEvent = measureEvents.get(measureId);
-        if (!measureEvent || !midiBase64) {
-            return;
-        }
-
-        const startScoreMs = measureEvent.time_ms;
-        if (!Number.isFinite(startScoreMs) || startScoreMs < 0) {
-            setPlaybackError("Cannot seek because this measure has invalid timing.");
-            return;
-        }
-        activePageRef.current = measureEvent.page;
-        setPage(measureEvent.page);
-        setCursorAnchor(null);
-        cursorSegmentRef.current = null;
-
-        const audioContext = audioContextRef.current;
-        if (!audioContext || audioContext.state === "closed") {
-            void playMidi(startScoreMs);
-            return;
-        }
-
-        const audioStartTime = audioContext.currentTime + 0.025;
-        playbackAudioStartTimeRef.current = audioStartTime;
-        stopScheduledNotes(audioContext, oscillatorNodesRef.current);
-        syncEngine.start(
-            audioStartTime,
-            tempoPercent / 100,
-            startScoreMs
-        );
-        scheduleMidiNotes(
-            audioContext,
-            midiNotesRef.current,
-            startScoreMs,
-            syncEngine,
-            oscillatorNodesRef.current
-        );
-    }
-
-    useEffect(() => () => {
-        window.cancelAnimationFrame(animationFrameRef.current);
-        const audioContext = audioContextRef.current;
-
-        if (audioContext && audioContext.state !== "closed") {
-            stopScheduledNotes(audioContext, oscillatorNodesRef.current);
-            void audioContext.close();
-        }
-    }, []);
+    const {
+        changeTempo,
+        cursorAnchor,
+        isPlaying,
+        playbackError,
+        playMidi,
+        seekToMeasure,
+        stopPlayback,
+        tempoPercent,
+    } = useMidiPlayback({
+        midiBase64,
+        timeline,
+        pageCount: pages.length,
+        onPageChange: setPage,
+        onPlaybackTick: updatePlaybackCursor,
+    });
 
     useEffect(() => {
-        activePageRef.current = page;
-
         if (previousPageRef.current !== page) {
             scoreContainerRef.current?.scrollTo({ top: 0, left: 0 });
             previousPageRef.current = page;
@@ -433,7 +163,7 @@ export default function ScoreViewer({
             startTimeMs: cursorAnchor.time_ms,
             endTimeMs: cursorAnchor.next_time_ms ?? cursorAnchor.time_ms,
             startLeft,
-            endLeft
+            endLeft,
         };
 
         if (
@@ -448,7 +178,7 @@ export default function ScoreViewer({
                         containerBounds.top -
                         scoreContainer.clientHeight / 2
                 ),
-                behavior: "smooth"
+                behavior: "smooth",
             });
         }
 
@@ -465,210 +195,68 @@ export default function ScoreViewer({
                         containerBounds.left -
                         scoreContainer.clientWidth / 2
                 ),
-                behavior: "smooth"
+                behavior: "smooth",
             });
         }
     }, [cursorAnchor, isPlaying, page, svg, zoom]);
 
     function handleScoreClick(event) {
-        const note = event.target.closest("g.note[id]");
-
-        if (note && event.currentTarget.contains(note)) {
-            setSelectedNote({
-                id: note.id,
-                pitch: note.dataset.pname?.toUpperCase() ?? "Unknown",
-                octave: note.dataset.oct ?? "Unknown",
-                duration: DURATIONS[note.dataset.dur] ?? "Unknown",
-                accidental: ACCIDENTALS[note.dataset.accid] ?? "None",
-                dots: Number(note.dataset.dots ?? 0)
-            });
-        }
-
         const measure = event.target.closest("g.measure[id]");
         if (measure && event.currentTarget.contains(measure)) {
             seekToMeasure(measure.id);
         }
     }
 
-    function changeZoom(amount) {
-        setZoom(current => Math.min(200, Math.max(50, current + amount)));
-    }
-
     return (
         <div className="viewer">
-            <div
-                className="score-toolbar"
-                role="toolbar"
-                aria-label="Score controls"
-            >
-                <div className="toolbar-group playback-group">
-                    <button
-                        className={`tool-btn ${isPlaying ? "primary" : ""}`}
-                        disabled={!midiBase64}
-                        onClick={() => {
-                            if (isPlaying) {
-                                stopPlayback();
-                            } else {
-                                void playMidi();
-                            }
-                        }}
-                    >
-                        <span aria-hidden="true">{isPlaying ? "■" : "▶"}</span>
-                        {isPlaying ? "Stop" : "Play"}
-                    </button>
-                    <details className="tempo-menu">
-                        <summary
-                            className="tool-btn tempo-button"
-                            aria-label={`Tempo controls, currently ${tempoPercent}%`}
-                            title={`Tempo: ${tempoPercent}%`}
-                        >
-                            <span aria-hidden="true">♩</span>
-                            <span>{tempoPercent}%</span>
-                        </summary>
-                        <div className="tempo-popover">
-                            <label
-                                className="tempo-control"
-                                htmlFor="playback-tempo"
-                            >
-                                <span>Playback tempo</span>
-                                <strong>{tempoPercent}%</strong>
-                            </label>
-                            <input
-                                id="playback-tempo"
-                                className="tempo-slider"
-                                aria-label="Playback tempo"
-                                type="range"
-                                min="50"
-                                max="150"
-                                step="5"
-                                value={tempoPercent}
-                                onChange={event =>
-                                    changeTempo(Number(event.target.value))
-                                }
-                            />
-                        </div>
-                    </details>
-                </div>
-
-                <div className="toolbar-group score-navigation">
-                    <button
-                        className="tool-btn page-button"
-                        aria-label="Previous page"
-                        title="Previous page"
-                        disabled={page === 0}
-                        onClick={() => {
-                            setPage(currentPage => currentPage - 1);
-                            setSelectedNote(null);
-                        }}
-                    >
-                        ‹
-                    </button>
-                    <span className="page-count">
-                        Page {page + 1} / {pages.length}
-                    </span>
-                    <button
-                        className="tool-btn page-button"
-                        aria-label="Next page"
-                        title="Next page"
-                        disabled={page === pages.length - 1}
-                        onClick={() => {
-                            setPage(currentPage => currentPage + 1);
-                            setSelectedNote(null);
-                        }}
-                    >
-                        ›
-                    </button>
-                </div>
-
-                <div className="toolbar-group toolbar-actions">
-                    <div className="zoom-controls" aria-label="Zoom controls">
-                        <button
-                            className="tool-btn zoom-button"
-                            aria-label="Zoom out"
-                            title="Zoom out"
-                            onClick={() => changeZoom(-10)}
-                        >
-                            −
-                        </button>
-                        <span className="zoom-level">{zoom}%</span>
-                        <button
-                            className="tool-btn zoom-button"
-                            aria-label="Zoom in"
-                            title="Zoom in"
-                            onClick={() => changeZoom(10)}
-                        >
-                            +
-                        </button>
-                        <button
-                            className="tool-btn zoom-reset"
-                            onClick={() => setZoom(100)}
-                        >
-                            Reset
-                        </button>
-                    </div>
-                    <button
-                        className={`tool-btn inspector-button ${
-                            inspectorVisible ? "selected" : ""
-                        }`}
-                        aria-pressed={inspectorVisible}
-                        onClick={() =>
-                            setInspectorVisible(visible => !visible)
-                        }
-                    >
-                        <span aria-hidden="true">⚙</span>
-                        Inspector
-                    </button>
-                </div>
-
-                {playbackError && (
-                    <span className="playback-error" role="alert">
-                        {playbackError}
-                    </span>
-                )}
-            </div>
-
+            <ScoreToolbar
+                isPlaying={isPlaying}
+                midiAvailable={Boolean(midiBase64)}
+                onPlay={() => void playMidi()}
+                onStop={stopPlayback}
+                tempoPercent={tempoPercent}
+                onTempoChange={changeTempo}
+                page={page}
+                pageCount={pages.length}
+                onPageStep={step => {
+                    setPage(currentPage => currentPage + step);
+                }}
+                zoom={zoom}
+                onZoomChange={setZoom}
+                inspectorVisible={inspectorVisible}
+                onInspectorToggle={() =>
+                    setInspectorVisible(visible => !visible)
+                }
+                playbackError={playbackError}
+            />
             <div
                 className={`viewer-content ${
                     inspectorVisible ? "" : "inspector-hidden"
                 }`}
             >
                 <div
-                    className="score-container score-canvas-container"
-                    ref={scoreContainerRef}
+                    className="score-viewer-stage"
+                    aria-busy={isTransposing}
                 >
-                    <div
-                        className="score-page"
-                        ref={scorePageRef}
-                        style={{ width: `${zoom}%` }}
-                    >
-                        <div
-                            className="score-svg"
-                            ref={scoreSvgRef}
-                            onClick={handleScoreClick}
-                            dangerouslySetInnerHTML={{ __html: svg }}
-                        />
-                        {isPlaying &&
-                            cursorAnchor?.page === page && (
-                                <div
-                                    aria-hidden="true"
-                                    className="playback-cursor"
-                                    ref={cursorElementRef}
-                                    style={{
-                                        left: 0,
-                                        top: 0,
-                                        height: 0,
-                                        visibility: "hidden"
-                                    }}
-                                />
-                            )}
-                    </div>
+                    <ScoreCanvas
+                        containerRef={scoreContainerRef}
+                        pageRef={scorePageRef}
+                        svgRef={scoreSvgRef}
+                        cursorRef={cursorElementRef}
+                        svg={svg}
+                        zoom={zoom}
+                        onClick={handleScoreClick}
+                        isPlaying={isPlaying}
+                        cursorVisible={cursorAnchor?.page === page}
+                    />
+                    {isTransposing && (
+                        <LoadingOverlay label="Transposing score..." />
+                    )}
                 </div>
-
                 {inspectorVisible && (
                     <ScoreInspector
                         analysis={analysis}
                         analysisError={analysisError}
-                        selectedNote={selectedNote}
                         isTransposing={isTransposing}
                         transposeError={transposeError}
                         onTranspose={onTranspose}
