@@ -9,6 +9,7 @@ import {
     getProject,
     listProjects,
     projectExportUrl,
+    transposeProject,
 } from "./services/scoreApi";
 
 import "./App.css";
@@ -56,6 +57,8 @@ export default function App() {
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [isImporting, setIsImporting] = useState(false);
     const [isDeletingProject, setIsDeletingProject] = useState(false);
+    const [isTransposing, setIsTransposing] = useState(false);
+    const [transposeError, setTransposeError] = useState("");
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [projectsError, setProjectsError] = useState("");
@@ -85,6 +88,7 @@ export default function App() {
     useEffect(() => {
         function handlePopState() {
             setProjectLoadError(null);
+            setTransposeError("");
             setRouteProjectId(projectIdFromLocation());
         }
 
@@ -122,6 +126,7 @@ export default function App() {
                 setAnalysis(result.analysis);
                 setAnalysisError(result.analysis_error || "");
                 setDeleteError("");
+                setTransposeError("");
             })
             .catch(loadError => {
                 if (!cancelled) {
@@ -149,6 +154,7 @@ export default function App() {
     function openProject(project) {
         window.history.pushState(null, "", projectPath(project));
         setProjectLoadError(null);
+        setTransposeError("");
         setRouteProjectId(project.id);
     }
 
@@ -161,6 +167,7 @@ export default function App() {
         setAnalysis(null);
         setAnalysisError("");
         setDeleteError("");
+        setTransposeError("");
         setFile(null);
         setError("");
     }
@@ -189,6 +196,37 @@ export default function App() {
         }
     }
 
+    async function handleTranspose(targetKey) {
+        if (!currentProject || isTransposing) return;
+
+        const projectId = currentProject.id;
+        setIsTransposing(true);
+        setTransposeError("");
+
+        try {
+            const result = await transposeProject(
+                projectId,
+                targetKey,
+                currentProject.current_revision
+            );
+            setProjects(current => current.map(project =>
+                project.id === result.project.id ? result.project : project
+            ));
+            if (projectIdFromLocation() === projectId) {
+                setActiveProject(result.project);
+                setScore(result.score);
+                setAnalysis(result.analysis);
+                setAnalysisError(result.analysis_error || "");
+            }
+        } catch (requestError) {
+            if (projectIdFromLocation() === projectId) {
+                setTransposeError(requestError.message);
+            }
+        } finally {
+            setIsTransposing(false);
+        }
+    }
+
     async function handleImport() {
         if (!file || isImporting) return;
 
@@ -205,6 +243,7 @@ export default function App() {
             setScore(result.score);
             setAnalysis(result.analysis);
             setAnalysisError(result.analysis_error || "");
+            setTransposeError("");
             skipNextProjectLoad.current = result.project.id;
             setProjectLoadError(null);
             setIsImportModalOpen(false);
@@ -454,12 +493,15 @@ export default function App() {
                             )}
                             <section className="score-section">
                                 <ScoreViewer
-                                    key={currentProject.id}
+                                    key={`${currentProject.id}-${currentProject.current_revision}`}
                                     pages={score.pages}
                                     midiBase64={score.midi_base64}
                                     timeline={score.timeline}
                                     analysis={analysis}
                                     analysisError={analysisError}
+                                    isTransposing={isTransposing}
+                                    transposeError={transposeError}
+                                    onTranspose={handleTranspose}
                                 />
                             </section>
                         </section>

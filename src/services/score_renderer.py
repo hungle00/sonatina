@@ -1,3 +1,5 @@
+from importlib.resources import files
+
 import verovio
 
 
@@ -6,7 +8,9 @@ def render_musicxml(
 ) -> tuple[list[str], str, list[dict[str, int | str | None]]]:
     xml = content.decode("utf-8-sig")
 
-    toolkit = verovio.toolkit()
+    toolkit = verovio.toolkit(initFont=False)
+    if not toolkit.setResourcePath(str(files("verovio") / "data")):
+        raise RuntimeError("Could not load Verovio font resources")
 
     toolkit.setOptions({
         "svgAdditionalAttribute": [

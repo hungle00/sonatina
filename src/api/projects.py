@@ -3,14 +3,28 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 from api.scores import read_musicxml, safe_musicxml_filename
 from services.music_service import analyze_score, load_score
-from services.project_store import ProjectSnapshotCleanupError, ProjectStore
+from services.project_store import (
+    ProjectRevisionConflictError,
+    ProjectSnapshotCleanupError,
+    ProjectStore,
+)
 from services.score_renderer import render_musicxml
+from services.score_transpose_service import (
+    MusicXMLTranspositionError,
+    transpose_musicxml,
+)
 
 router = APIRouter()
 project_store = ProjectStore()
+
+
+class TransposeRequest(BaseModel):
+    target_key: str = Field(min_length=1, max_length=8)
+    expected_revision: int | None = Field(default=None, ge=1)
 
 
 def _analyze_musicxml(content: bytes, filename: str) -> dict:
@@ -21,7 +35,7 @@ def _analyze_musicxml(content: bytes, filename: str) -> dict:
         return analyze_score(load_score(temporary_file.name))
 
 
-def _build_response(project: dict, content: bytes) -> dict:
+def _render_score_data(content: bytes, filename: str) -> dict:
     try:
         pages, midi_base64, timeline = render_musicxml(content)
     except ValueError as error:
@@ -32,10 +46,24 @@ def _build_response(project: dict, content: bytes) -> dict:
     analysis = None
     analysis_error = None
     try:
-        analysis = _analyze_musicxml(content, project["source_filename"])
+        analysis = _analyze_musicxml(content, filename)
     except Exception:
         analysis_error = "Failed to analyze score"
 
+    return {
+        "score": {
+            "filename": filename,
+            "page_count": len(pages),
+            "pages": pages,
+            "midi_base64": midi_base64,
+            "timeline": timeline,
+        },
+        "analysis": analysis,
+        "analysis_error": analysis_error,
+    }
+
+
+def _project_response(project: dict, score_data: dict) -> dict:
     return {
         "project": {
             key: project[key]
@@ -48,16 +76,13 @@ def _build_response(project: dict, content: bytes) -> dict:
                 "current_revision",
             )
         },
-        "score": {
-            "filename": project["source_filename"],
-            "page_count": len(pages),
-            "pages": pages,
-            "midi_base64": midi_base64,
-            "timeline": timeline,
-        },
-        "analysis": analysis,
-        "analysis_error": analysis_error,
+        **score_data,
     }
+
+
+def _build_response(project: dict, content: bytes) -> dict:
+    score_data = _render_score_data(content, project["source_filename"])
+    return _project_response(project, score_data)
 
 
 @router.get("/projects")
@@ -123,6 +148,67 @@ async def get_project(project_id: str):
     if content is None:
         raise HTTPException(404, "Project not found")
     return _build_response(project, content)
+
+
+@router.post("/projects/{project_id}/transpose")
+def transpose_project(project_id: str, request: TransposeRequest):
+    project = project_store.get_project(project_id)
+    if project is None:
+        raise HTTPException(404, "Project not found")
+
+    expected_revision = request.expected_revision
+
+    if (
+        expected_revision is not None
+        and expected_revision != project["current_revision"]
+    ):
+        raise HTTPException(
+            409,
+            f"Project is at revision {project['current_revision']}; reload it "
+            "before transposing",
+        )
+    expected_revision = project["current_revision"]
+
+    try:
+        content = project_store.read_musicxml(project_id)
+    except (OSError, ValueError) as error:
+        raise HTTPException(500, "Could not read project MusicXML") from error
+
+    if content is None:
+        raise HTTPException(404, "Project not found")
+
+    try:
+        transposed_content = transpose_musicxml(
+            content,
+            project["source_filename"],
+            request.target_key,
+        )
+    except MusicXMLTranspositionError as error:
+        raise HTTPException(400, f"Could not transpose score: {error}") from error
+    except OSError as error:
+        raise HTTPException(500, "Could not write transposed MusicXML") from error
+
+    score_data = _render_score_data(
+        transposed_content,
+        project["source_filename"],
+    )
+    try:
+        updated_project = project_store.add_revision(
+            project_id,
+            transposed_content,
+            expected_revision,
+        )
+    except ProjectRevisionConflictError as error:
+        raise HTTPException(
+            409,
+            f"{error}. Reload the project before transposing again.",
+        ) from error
+    except (OSError, ValueError) as error:
+        raise HTTPException(500, "Could not save score revision") from error
+
+    if updated_project is None:
+        raise HTTPException(404, "Project not found")
+    return _project_response(updated_project, score_data)
 
 
 @router.get("/projects/{project_id}/export")

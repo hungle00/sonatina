@@ -45,6 +45,29 @@ class ProjectStoreTests(unittest.TestCase):
             self.assertTrue(snapshot_path.is_file())
             self.assertIn("revision-1.musicxml", str(snapshot_path))
 
+            updated = store.add_revision(
+                created["id"],
+                MUSICXML.replace(b"note-one", b"note-new"),
+                expected_revision=1,
+            )
+
+            self.assertEqual(updated["current_revision"], 2)
+            self.assertIn("revision-2.musicxml", updated["musicxml_path"])
+            self.assertEqual(
+                store.read_musicxml(created["id"]),
+                MUSICXML.replace(b"note-one", b"note-new"),
+            )
+            with self.assertRaisesRegex(RuntimeError, "not 1"):
+                store.add_revision(
+                    created["id"],
+                    MUSICXML,
+                    expected_revision=1,
+                )
+            self.assertEqual(
+                store.get_project(created["id"])["current_revision"],
+                2,
+            )
+
     def test_missing_project_has_no_snapshot(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             store = ProjectStore(Path(temporary_directory))

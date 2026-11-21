@@ -4,7 +4,7 @@ Sonatina is a local-first web app for importing, viewing, analyzing, and
 playing MusicXML scores. It also keeps a local project library with export and
 revision information.
 
-<video controls src="screenshot/sonatina.mp4" title="Title"></video>
+![Sonatina UI](screenshot/sonatina.gif)
 
 ## Techstack
 

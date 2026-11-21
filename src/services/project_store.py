@@ -13,6 +13,10 @@ class ProjectSnapshotCleanupError(OSError):
     pass
 
 
+class ProjectRevisionConflictError(RuntimeError):
+    pass
+
+
 class ProjectStore:
     def __init__(self, data_dir: Path = DATA_DIR):
         self.data_dir = Path(data_dir)
@@ -116,6 +120,95 @@ class ProjectStore:
         if project is None:
             raise RuntimeError("New project could not be loaded")
         return project
+
+    def add_revision(
+        self,
+        project_id: str,
+        musicxml: bytes,
+        expected_revision: int,
+    ) -> dict | None:
+        temporary_path = None
+        snapshot_path = None
+
+        try:
+            with self.connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                project = connection.execute(
+                    """
+                    SELECT id, current_revision
+                    FROM projects
+                    WHERE id = ?
+                    """,
+                    (project_id,),
+                ).fetchone()
+                if project is None:
+                    return None
+
+                current_revision = project["current_revision"]
+                if current_revision != expected_revision:
+                    raise ProjectRevisionConflictError(
+                        f"Project is at revision {current_revision}, "
+                        f"not {expected_revision}"
+                    )
+
+                revision = current_revision + 1
+                relative_path = (
+                    Path("musicxml")
+                    / project["id"]
+                    / f"revision-{revision}.musicxml"
+                )
+                snapshot_path = self.data_dir / relative_path
+                temporary_path = snapshot_path.with_suffix(
+                    ".musicxml.tmp"
+                )
+                snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+
+                with temporary_path.open("xb") as snapshot:
+                    snapshot.write(musicxml)
+                    snapshot.flush()
+                    os.fsync(snapshot.fileno())
+                os.replace(temporary_path, snapshot_path)
+
+                connection.execute(
+                    """
+                    INSERT INTO score_revisions (
+                        project_id, revision, musicxml_path
+                    )
+                    VALUES (?, ?, ?)
+                    """,
+                    (project["id"], revision, relative_path.as_posix()),
+                )
+                connection.execute(
+                    """
+                    UPDATE projects
+                    SET current_revision = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND current_revision = ?
+                    """,
+                    (revision, project["id"], current_revision),
+                )
+                updated_project = connection.execute(
+                    """
+                    SELECT
+                        p.id, p.name, p.source_filename, p.created_at,
+                        p.updated_at, p.current_revision, r.musicxml_path
+                    FROM projects AS p
+                    JOIN score_revisions AS r
+                        ON r.project_id = p.id
+                        AND r.revision = p.current_revision
+                    WHERE p.id = ?
+                    """,
+                    (project["id"],),
+                ).fetchone()
+        except Exception:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+            if snapshot_path is not None:
+                snapshot_path.unlink(missing_ok=True)
+            raise
+
+        if updated_project is None:
+            raise RuntimeError("Updated project could not be loaded")
+        return dict(updated_project)
 
     def list_projects(self) -> list[dict]:
         with self.connect() as connection:

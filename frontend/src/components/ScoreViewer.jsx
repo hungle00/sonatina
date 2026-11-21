@@ -76,6 +76,9 @@ export default function ScoreViewer({
     timeline,
     analysis,
     analysisError,
+    isTransposing,
+    transposeError,
+    onTranspose,
 }) {
     const scoreTimeline = Array.isArray(timeline) ? timeline : EMPTY_TIMELINE;
     const syncEngine = useMemo(
@@ -666,6 +669,9 @@ export default function ScoreViewer({
                         analysis={analysis}
                         analysisError={analysisError}
                         selectedNote={selectedNote}
+                        isTransposing={isTransposing}
+                        transposeError={transposeError}
+                        onTranspose={onTranspose}
                         onClose={() => setInspectorVisible(false)}
                     />
                 )}
