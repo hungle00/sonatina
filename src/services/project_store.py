@@ -6,7 +6,24 @@ from pathlib import Path
 from typing import Iterator
 
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+def get_data_dir() -> Path:
+    override = os.environ.get("SONATINA_DATA_DIR")
+    if override:
+        return Path(override).expanduser()
+
+    if os.name == "nt":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            return Path(local_app_data) / "Sonatina"
+        return Path.home() / "AppData" / "Local" / "Sonatina"
+
+    xdg_data_home = os.environ.get("XDG_DATA_HOME")
+    if xdg_data_home:
+        return Path(xdg_data_home).expanduser() / "Sonatina"
+    return Path.home() / ".local" / "share" / "Sonatina"
+
+
+DATA_DIR = get_data_dir()
 
 
 class ProjectSnapshotCleanupError(OSError):
@@ -22,8 +39,8 @@ class ProjectHasNoUndoError(RuntimeError):
 
 
 class ProjectStore:
-    def __init__(self, data_dir: Path = DATA_DIR):
-        self.data_dir = Path(data_dir)
+    def __init__(self, data_dir: Path | None = None):
+        self.data_dir = Path(data_dir) if data_dir is not None else get_data_dir()
         self.database_path = self.data_dir / "projects.sqlite3"
         self.musicxml_dir = self.data_dir / "musicxml"
         self.initialize()

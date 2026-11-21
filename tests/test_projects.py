@@ -1,9 +1,11 @@
+import os
 import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from services.project_store import ProjectStore
+from services.project_store import ProjectStore, get_data_dir
 
 
 MUSICXML = Path(__file__).with_name("fixtures").joinpath(
@@ -12,6 +14,30 @@ MUSICXML = Path(__file__).with_name("fixtures").joinpath(
 
 
 class ProjectStoreTests(unittest.TestCase):
+    def test_data_directory_can_be_overridden_for_packaged_installs(self):
+        with patch.dict(
+            os.environ,
+            {"SONATINA_DATA_DIR": "~/SonatinaData"},
+            clear=True,
+        ):
+            self.assertEqual(
+                get_data_dir(),
+                Path.home() / "SonatinaData",
+            )
+
+    def test_data_directory_uses_xdg_location_on_unix(self):
+        with patch.dict(
+            os.environ,
+            {"XDG_DATA_HOME": "~/AppData"},
+            clear=True,
+        ):
+            if os.name == "nt":
+                self.skipTest("XDG data directories are not used on Windows")
+            self.assertEqual(
+                get_data_dir(),
+                Path.home() / "AppData" / "Sonatina",
+            )
+
     def test_create_and_reopen_project_revision(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             store = ProjectStore(Path(temporary_directory))
