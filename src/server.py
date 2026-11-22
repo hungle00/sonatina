@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -7,8 +8,9 @@ from fastapi.staticfiles import StaticFiles
 from api.projects import router as projects_router
 from api.scores import router as scores_router
 
-BASE_DIR = Path(__file__).parent
-FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
+RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+FRONTEND_DIST = RESOURCE_DIR / "frontend" / "dist"
+TEMPLATES_DIR = RESOURCE_DIR / "src" / "templates"
 
 app = FastAPI(title="Music Toolkit")
 
@@ -27,7 +29,7 @@ def index():
     frontend_index = FRONTEND_DIST / "index.html"
     if frontend_index.is_file():
         return FileResponse(frontend_index)
-    return FileResponse(BASE_DIR / "templates" / "index.html")
+    return FileResponse(TEMPLATES_DIR / "index.html")
 
 
 @app.get("/{frontend_path:path}", include_in_schema=False)
