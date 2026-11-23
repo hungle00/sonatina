@@ -20,6 +20,10 @@ class HomrError(RuntimeError):
     """An invalid input or failed homr conversion."""
 
 
+class HomrUnavailableError(HomrError):
+    """The homr executable is unavailable."""
+
+
 class HomrService:
     SUPPORTED_EXTENSIONS = frozenset({".pdf", ".png", ".jpg", ".jpeg"})
 
@@ -44,7 +48,9 @@ class HomrService:
             path = Path(executable).expanduser().resolve()
             if path.is_file():
                 return str(path)
-            raise HomrError(f"homr executable not found: {executable}")
+            raise HomrUnavailableError(
+                f"homr executable not found: {executable}"
+            )
 
         # Prefer the binary installed into the running Python's venv.
         scripts = "Scripts" if os.name == "nt" else "bin"
@@ -56,7 +62,7 @@ class HomrService:
         located = shutil.which("homr")
         if located:
             return located
-        raise HomrError(
+        raise HomrUnavailableError(
             "Cannot find homr. Activate your venv and run: "
             "python -m pip install 'homr[cpu]==0.7.1'"
         )
@@ -104,7 +110,9 @@ class HomrService:
                     f"homr exceeded the {self.timeout_seconds}s timeout"
                 ) from exc
             except OSError as exc:
-                raise HomrError(f"Cannot launch homr: {exc}") from exc
+                raise HomrUnavailableError(
+                    f"Cannot launch homr: {exc}"
+                ) from exc
 
             combined_log = "\n".join([result.stdout, result.stderr]).strip()
             if result.returncode != 0:

@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from api.omr import router as omr_router
 from api.projects import router as projects_router
 from api.scores import router as scores_router
 
@@ -16,6 +17,7 @@ app = FastAPI(title="Music Toolkit")
 
 app.include_router(scores_router, prefix="/api")
 app.include_router(projects_router, prefix="/api")
+app.include_router(omr_router, prefix="/api")
 
 if (FRONTEND_DIST / "assets").is_dir():
     app.mount(

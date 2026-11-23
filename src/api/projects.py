@@ -105,6 +105,11 @@ def list_projects():
 async def create_project(file: UploadFile = File(...)):
     content = await read_musicxml(file)
     filename = safe_musicxml_filename(file.filename)
+
+    return _create_project_from_musicxml(content, filename)
+
+
+def _create_project_from_musicxml(content: bytes, filename: str) -> dict:
     try:
         pages, midi_base64, timeline = render_musicxml(content)
     except ValueError as error:
