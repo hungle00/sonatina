@@ -49,6 +49,16 @@ export function createProject(file) {
     });
 }
 
+export function convertScore(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    return requestJson("/api/omr/convert", {
+        method: "POST",
+        body: formData,
+    });
+}
+
 export function getProject(projectId) {
     return requestJson(`/api/projects/${encodeURIComponent(projectId)}`);
 }
