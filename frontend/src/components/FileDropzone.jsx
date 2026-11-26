@@ -2,15 +2,27 @@ import { useRef, useState } from "react";
 import "../styles/dropzone.css";
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = [".musicxml", ".xml"];
+const FILE_TYPES = {
+    musicxml: {
+        accept: ".musicxml,.xml,.mxl",
+        extensions: [".musicxml", ".xml", ".mxl"],
+        description: "MusicXML (.musicxml, .xml or .mxl)",
+    },
+    omr: {
+        accept: ".pdf,.png,.jpg,.jpeg",
+        extensions: [".pdf", ".png", ".jpg", ".jpeg"],
+        description: "PDF or image (.pdf, .png, .jpg, .jpeg)",
+    },
+};
 
-function validateFile(file) {
+function validateFile(file, fileType) {
     const extension = file.name
         .slice(file.name.lastIndexOf("."))
         .toLowerCase();
+    const acceptedType = FILE_TYPES[fileType];
 
-    if (!ACCEPTED_EXTENSIONS.includes(extension)) {
-        return "Please select a MusicXML file (.musicxml or .xml).";
+    if (!acceptedType.extensions.includes(extension)) {
+        return `Please select a ${acceptedType.description} file.`;
     }
 
     if (file.size > MAX_FILE_SIZE) {
@@ -35,6 +47,7 @@ export default function FileDropzone({
     file,
     onFileSelect,
     onRemove,
+    fileType = "musicxml",
     disabled = false,
 }) {
     const inputRef = useRef(null);
@@ -44,7 +57,7 @@ export default function FileDropzone({
     function selectFile(selectedFile) {
         if (!selectedFile) return;
 
-        const validationError = validateFile(selectedFile);
+        const validationError = validateFile(selectedFile, fileType);
 
         if (validationError) {
             setError(validationError);
@@ -102,16 +115,18 @@ export default function FileDropzone({
                     <h3>Drop your score here</h3>
 
                     <p>
-                        Drag and drop a MusicXML file, or{" "}
+                        Drag and drop a {FILE_TYPES[fileType].description} file, or{" "}
                         <span>browse files</span>
                     </p>
 
-                    <small>Supported: .musicxml, .xml · Max 15 MB</small>
+                    <small>
+                        Supported: {FILE_TYPES[fileType].extensions.join(", ")} · Max 15 MB
+                    </small>
 
                     <input
                         ref={inputRef}
                         type="file"
-                        accept=".musicxml,.xml"
+                        accept={FILE_TYPES[fileType].accept}
                         hidden
                         onChange={handleInputChange}
                         disabled={disabled}

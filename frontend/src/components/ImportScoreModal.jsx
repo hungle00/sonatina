@@ -1,3 +1,4 @@
+import { useState } from "react";
 import FileDropzone from "./FileDropzone";
 import LoadingSpinner from "./LoadingSpinner";
 
@@ -10,6 +11,14 @@ export default function ImportScoreModal({
     onFileSelect,
     onRemoveFile,
 }) {
+    const [fileType, setFileType] = useState("musicxml");
+
+    function selectFileType(nextFileType) {
+        if (nextFileType === fileType || isImporting) return;
+        onRemoveFile();
+        setFileType(nextFileType);
+    }
+
     return (
         <div
             className="modal-overlay"
@@ -33,14 +42,41 @@ export default function ImportScoreModal({
                         ×
                     </button>
                 </div>
+                <div className="import-tabs" aria-label="Score file type">
+                    <button
+                        type="button"
+                        className={`import-tab ${
+                            fileType === "musicxml" ? "active" : ""
+                        }`}
+                        aria-pressed={fileType === "musicxml"}
+                        disabled={isImporting}
+                        onClick={() => selectFileType("musicxml")}
+                    >
+                        MusicXML
+                    </button>
+                    <button
+                        type="button"
+                        className={`import-tab ${
+                            fileType === "omr" ? "active" : ""
+                        }`}
+                        aria-pressed={fileType === "omr"}
+                        disabled={isImporting}
+                        onClick={() => selectFileType("omr")}
+                    >
+                        PDF / Image
+                    </button>
+                </div>
                 <FileDropzone
                     file={file}
                     onFileSelect={onFileSelect}
                     onRemove={onRemoveFile}
+                    fileType={fileType}
                     disabled={isImporting}
                 />
                 <p className="modal-hint">
-                    Saved as Revision 1 when imported.
+                    {fileType === "omr"
+                        ? "The score will be converted to MusicXML and saved as Revision 1."
+                        : "Saved as Revision 1 when imported."}
                 </p>
                 {error && <p className="error-message">{error}</p>}
                 <div className="modal-actions">
@@ -54,12 +90,16 @@ export default function ImportScoreModal({
                     <button
                         className="btn-primary"
                         disabled={!file || isImporting}
-                        onClick={onImport}
+                        onClick={() => onImport(fileType)}
                     >
                         {isImporting ? (
-                            <LoadingSpinner label="Importing..." />
+                            <LoadingSpinner
+                                label={fileType === "omr" ? "Converting..." : "Importing..."}
+                            />
                         ) : (
-                            "Import & Save Project"
+                            fileType === "omr"
+                                ? "Convert & Save Project"
+                                : "Import & Save Project"
                         )}
                     </button>
                 </div>

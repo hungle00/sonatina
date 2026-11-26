@@ -5,8 +5,8 @@
 body {
     margin: 0;
     font-family: Arial, sans-serif;
-    background: #f4f5f7;
-    color: #222;
+    background: var(--bg-app);
+    color: var(--text-primary);
 }
 
 header {
@@ -31,8 +31,8 @@ header {
     flex-wrap: wrap;
     gap: 10px;
     padding: 12px;
-    background: white;
-    border: 1px solid #ddd;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
 }
 
 .pagination {
@@ -57,7 +57,7 @@ header {
 .score-container {
     overflow: auto;
     max-height: 80vh;
-    background: #e8e8e8;
+    background: var(--bg-subtle);
     padding: 20px;
 }
 
@@ -68,7 +68,7 @@ header {
 
 .score-svg {
     margin: auto;
-    background: white;
+    background: var(--bg-surface);
     min-width: 50%;
 }
 
@@ -109,13 +109,13 @@ header {
 }
 
 .inspector {
-    background: white;
+    background: var(--bg-surface);
     padding: 16px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color);
 }
 
 .inspector dt {
-    color: #777;
+    color: var(--text-secondary);
     font-size: 12px;
     margin-top: 14px;
 }

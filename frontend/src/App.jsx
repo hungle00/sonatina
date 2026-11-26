@@ -9,6 +9,7 @@ import WorkspaceSidebar from "./components/WorkspaceSidebar";
 
 import {
     createProject,
+    convertScore,
     deleteProject,
     getProject,
     listProjects,
@@ -265,14 +266,16 @@ export default function App() {
         }
     }
 
-    async function handleImport() {
+    async function handleImport(fileType) {
         if (!file || isImporting) return;
 
         setIsImporting(true);
         setError("");
 
         try {
-            const result = await createProject(file);
+            const result = fileType === "omr"
+                ? await convertScore(file)
+                : await createProject(file);
             setProjects(current => [
                 result.project,
                 ...current.filter(project => project.id !== result.project.id),

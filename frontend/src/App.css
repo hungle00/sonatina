@@ -2,20 +2,41 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 15px;
     line-height: 1.5;
-    color: #0f172a;
-    background: #f8fafc;
+    color: #291d14;
+    background: #f8f6f2;
+    color-scheme: light;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color-scheme: light;
+
+    --bg-app: #f8f6f2;
+    --bg-surface: #fffdf9;
+    --bg-subtle: #f5f2ed;
+    --bg-sidebar: #f5f3ef;
+    --border-color: #e6dccb;
+    --border-strong: #d4c4ac;
+    --text-primary: #291d14;
+    --text-secondary: #786657;
+    --accent: #ea580c;
+    --accent-hover: #c2410c;
+    --accent-soft: #ffedd5;
+    --accent-border: #fdba74;
+    --danger: #b91c1c;
+    --danger-hover: #fca5a5;
+    --danger-soft: #fef2f2;
+    --danger-border: #fecaca;
+    --shadow-sm: 0 1px 2px rgb(67 20 7 / 5%);
+    --shadow-md: 0 6px 16px -4px rgb(124 45 18 / 8%);
+    --radius-md: 8px;
+    --radius-lg: 12px;
 }
 
 body {
     min-width: 320px;
     min-height: 100vh;
-    background: #f8fafc;
-    color: #0f172a;
+    background: var(--bg-app);
+    color: var(--text-primary);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -37,21 +58,11 @@ select {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible {
-    outline: 3px solid rgb(99 102 241 / 35%);
+    outline: 3px solid rgb(234 88 12 / 35%);
     outline-offset: 2px;
 }
 
 .app-shell {
-    --bg-app: #f8fafc;
-    --bg-surface: #fff;
-    --bg-sidebar: #f1f5f9;
-    --border-color: #e2e8f0;
-    --text-primary: #0f172a;
-    --text-secondary: #64748b;
-    --accent: #6366f1;
-    --accent-hover: #4f46e5;
-    --accent-soft: #eef2ff;
-
     display: flex;
     width: 100%;
     height: 100vh;
@@ -73,6 +84,7 @@ input:focus-visible {
     overflow: hidden;
     border-right: 1px solid var(--border-color);
     background: var(--bg-sidebar);
+    font-family: Inter, system-ui, "Segoe UI", "Noto Sans", sans-serif;
 }
 
 .brand {
@@ -86,6 +98,7 @@ input:focus-visible {
     cursor: pointer;
     font-size: 1.05rem;
     font-weight: 700;
+    letter-spacing: -0.02em;
     text-align: left;
 }
 
@@ -109,9 +122,9 @@ input:focus-visible {
     min-height: 38px;
     padding: 9px 14px;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     background: var(--accent);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+    box-shadow: var(--shadow-sm);
     color: white;
     cursor: pointer;
     font-size: 0.9rem;
@@ -168,12 +181,13 @@ input:focus-visible {
     color: var(--text-primary);
     cursor: pointer;
     font-size: 0.875rem;
+    font-weight: 500;
     text-align: left;
     transition: background-color 0.15s ease;
 }
 
 .nav-item:hover:not(:disabled) {
-    background: rgb(0 0 0 / 4%);
+    background: rgb(67 20 7 / 4%);
 }
 
 .nav-item.active {
@@ -356,7 +370,7 @@ input:focus-visible {
     padding: 0;
     overflow: hidden;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     background: var(--bg-surface);
     color: var(--text-primary);
     cursor: pointer;
@@ -366,8 +380,8 @@ input:focus-visible {
 
 .project-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 7%), 0 2px 4px -2px rgb(0 0 0 / 5%);
-    border-color: #cbd5e1;
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-strong);
 }
 
 .card-preview {
@@ -379,15 +393,15 @@ input:focus-visible {
     gap: 14px;
     padding: 16px;
     border-bottom: 1px solid var(--border-color);
-    background: #fcfcfd;
+    background: var(--bg-subtle);
 }
 
 .staff-lines {
     height: 18px;
     background: repeating-linear-gradient(
         to bottom,
-        #cbd5e1 0,
-        #cbd5e1 1px,
+        var(--border-strong) 0,
+        var(--border-strong) 1px,
         transparent 1px,
         transparent 4px
     );
@@ -539,8 +553,8 @@ input:focus-visible {
 .revision-badge {
     padding: 2px 7px;
     border-radius: 4px;
-    background: #e2e8f0;
-    color: #475569;
+    background: var(--bg-subtle);
+    color: var(--text-secondary);
     font-size: 0.72rem;
     font-weight: 600;
 }
@@ -563,21 +577,36 @@ input:focus-visible {
     min-height: 38px;
     align-items: center;
     justify-content: center;
-    gap: 7px;
+    gap: 8px;
     padding: 8px 12px;
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    background: #fff;
-    color: #b91c1c;
+    border: 1px solid var(--danger-border);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    color: var(--danger);
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 600;
     white-space: nowrap;
+    transition:
+        border-color 0.15s ease,
+        background-color 0.15s ease,
+        color 0.15s ease;
 }
 
 .btn-danger:hover:not(:disabled) {
-    border-color: #fca5a5;
-    background: #fef2f2;
+    border-color: var(--danger-hover);
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.delete-project-button svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
 }
 
 .btn-danger:disabled {
@@ -596,7 +625,7 @@ input:focus-visible {
     justify-content: center;
     padding: 8px 14px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: var(--text-primary);
     cursor: pointer;
@@ -605,7 +634,7 @@ input:focus-visible {
 }
 
 .btn-ghost:hover:not(:disabled) {
-    background: #f8fafc;
+    background: var(--bg-subtle);
 }
 
 .btn-ghost:disabled {
@@ -631,9 +660,9 @@ input:focus-visible {
     margin-bottom: 16px;
     padding: 7px 12px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     background: var(--bg-surface);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+    box-shadow: var(--shadow-sm);
 }
 
 .toolbar-group {
@@ -663,7 +692,7 @@ input:focus-visible {
 }
 
 .score-toolbar .tool-btn:hover:not(:disabled) {
-    border-color: #cbd5e1;
+    border-color: var(--border-strong);
     background: var(--bg-app);
 }
 
@@ -684,7 +713,7 @@ input:focus-visible {
 }
 
 .score-toolbar .tool-btn.selected {
-    border-color: #c7d2fe;
+    border-color: var(--accent-border);
     background: var(--accent-soft);
     color: var(--accent);
 }
@@ -722,7 +751,7 @@ input:focus-visible {
 }
 
 .tempo-menu[open] > summary {
-    border-color: #c7d2fe;
+    border-color: var(--accent-border);
     background: var(--accent-soft);
     color: var(--accent);
 }
@@ -737,9 +766,9 @@ input:focus-visible {
     gap: 10px;
     padding: 14px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     background: var(--bg-surface);
-    box-shadow: 0 8px 20px rgb(15 23 42 / 12%);
+    box-shadow: var(--shadow-md);
 }
 
 .score-toolbar .tempo-control {
@@ -826,7 +855,7 @@ input:focus-visible {
     inset: 0;
     display: grid;
     place-items: center;
-    background: rgb(248 250 252 / 78%);
+    background: rgb(248 246 242 / 78%);
     color: var(--text-primary);
 }
 
@@ -836,9 +865,9 @@ input:focus-visible {
     padding: 24px;
     overflow: auto;
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     background: var(--bg-surface);
-    box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+    box-shadow: var(--shadow-sm);
 }
 
 .score-section .score-page {
@@ -858,7 +887,7 @@ input:focus-visible {
     flex-shrink: 0;
     overflow: hidden;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     background: var(--bg-surface);
 }
 
@@ -964,7 +993,7 @@ input:focus-visible {
 }
 
 .editor-mode-options .tool-btn.selected {
-    border-color: #c7d2fe;
+    border-color: var(--accent-border);
     background: var(--accent-soft);
     color: var(--accent);
 }
@@ -991,7 +1020,7 @@ input:focus-visible {
     justify-content: space-between;
     gap: 12px;
     padding-bottom: 8px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .inspector-properties dt,
@@ -1039,7 +1068,7 @@ input:focus-visible {
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: rgb(15 23 42 / 45%);
+    background: rgb(41 29 20 / 45%);
     backdrop-filter: blur(2px);
     inset: 0;
 }
@@ -1048,9 +1077,9 @@ input:focus-visible {
     width: 100%;
     max-width: 480px;
     padding: 24px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     background: var(--bg-surface);
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 10%);
+    box-shadow: var(--shadow-md);
 }
 
 .modal-header {
@@ -1066,6 +1095,39 @@ input:focus-visible {
     color: var(--text-primary);
     font-size: 1.1rem;
     font-weight: 600;
+}
+
+.import-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 4px;
+    border-radius: 9px;
+    background: var(--bg-app);
+}
+
+.import-tab {
+    min-height: 36px;
+    padding: 7px 12px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.import-tab.active {
+    background: var(--bg-surface);
+    box-shadow: var(--shadow-sm);
+    color: var(--text-primary);
+}
+
+.import-tab:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .btn-close {
@@ -1085,7 +1147,7 @@ input:focus-visible {
 
 .import-modal .dropzone {
     padding: 36px 20px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     background: var(--bg-app);
 }
 
