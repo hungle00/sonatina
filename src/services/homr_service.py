@@ -52,9 +52,19 @@ class HomrService:
                 f"homr executable not found: {executable}"
             )
 
-        # Prefer the binary installed into the running Python's venv.
         scripts = "Scripts" if os.name == "nt" else "bin"
         name = "homr.exe" if os.name == "nt" else "homr"
+
+        if getattr(sys, "frozen", False):
+            executable_directory = Path(sys.executable).resolve().parent
+            for candidate in (
+                executable_directory / "homr" / name,
+                executable_directory / name,
+            ):
+                if candidate.is_file():
+                    return str(candidate)
+
+        # Prefer the binary installed into the running Python's venv.
         candidate = Path(sys.prefix) / scripts / name
         if candidate.is_file():
             return str(candidate)

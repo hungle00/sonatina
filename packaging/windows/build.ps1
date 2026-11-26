@@ -23,6 +23,20 @@ if ($LASTEXITCODE -ne 0) {
     throw "Building the Sonatina application failed."
 }
 
+python -m PyInstaller --clean --noconfirm `
+    --distpath dist/Sonatina `
+    --workpath build/homr `
+    packaging/windows/homr.spec
+if ($LASTEXITCODE -ne 0) {
+    throw "Building the HOMR sidecar failed."
+}
+
+$HomrExecutable = Join-Path $RepositoryRoot "dist\Sonatina\homr\homr.exe"
+& $HomrExecutable --help *> $null
+if ($LASTEXITCODE -ne 0) {
+    throw "The bundled HOMR executable failed its startup check."
+}
+
 $InnoSetupCommand = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
 if ($InnoSetupCommand) {
     $InnoSetupPath = $InnoSetupCommand.Source

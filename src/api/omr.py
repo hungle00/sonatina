@@ -49,7 +49,6 @@ async def convert_score(file: UploadFile = File(...)):
 
     stem = Path(input_filename).stem.strip()
     musicxml_filename = f"{stem or 'score'}.musicxml"
-    print(musicxml_filename)
     try:
         return await run_in_threadpool(
             _convert_and_create_project,
