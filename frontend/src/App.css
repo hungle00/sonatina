@@ -3,17 +3,17 @@
     font-size: 15px;
     line-height: 1.5;
     color: #291d14;
-    background: #faf6f0;
+    background: #f8f6f2;
     color-scheme: light;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 
-    --bg-app: #faf6f0;
+    --bg-app: #f8f6f2;
     --bg-surface: #fffdf9;
-    --bg-subtle: #f3ece1;
-    --bg-sidebar: var(--bg-subtle);
+    --bg-subtle: #f5f2ed;
+    --bg-sidebar: #f5f3ef;
     --border-color: #e6dccb;
     --border-strong: #d4c4ac;
     --text-primary: #291d14;
@@ -22,6 +22,10 @@
     --accent-hover: #c2410c;
     --accent-soft: #ffedd5;
     --accent-border: #fdba74;
+    --danger: #b91c1c;
+    --danger-hover: #fca5a5;
+    --danger-soft: #fef2f2;
+    --danger-border: #fecaca;
     --shadow-sm: 0 1px 2px rgb(67 20 7 / 5%);
     --shadow-md: 0 6px 16px -4px rgb(124 45 18 / 8%);
     --radius-md: 8px;
@@ -80,6 +84,7 @@ input:focus-visible {
     overflow: hidden;
     border-right: 1px solid var(--border-color);
     background: var(--bg-sidebar);
+    font-family: Inter, system-ui, "Segoe UI", "Noto Sans", sans-serif;
 }
 
 .brand {
@@ -93,6 +98,7 @@ input:focus-visible {
     cursor: pointer;
     font-size: 1.05rem;
     font-weight: 700;
+    letter-spacing: -0.02em;
     text-align: left;
 }
 
@@ -175,6 +181,7 @@ input:focus-visible {
     color: var(--text-primary);
     cursor: pointer;
     font-size: 0.875rem;
+    font-weight: 500;
     text-align: left;
     transition: background-color 0.15s ease;
 }
@@ -570,21 +577,36 @@ input:focus-visible {
     min-height: 38px;
     align-items: center;
     justify-content: center;
-    gap: 7px;
+    gap: 8px;
     padding: 8px 12px;
-    border: 1px solid #fecaca;
+    border: 1px solid var(--danger-border);
     border-radius: var(--radius-md);
     background: var(--bg-surface);
-    color: #b91c1c;
+    color: var(--danger);
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 600;
     white-space: nowrap;
+    transition:
+        border-color 0.15s ease,
+        background-color 0.15s ease,
+        color 0.15s ease;
 }
 
 .btn-danger:hover:not(:disabled) {
-    border-color: #fca5a5;
-    background: #fef2f2;
+    border-color: var(--danger-hover);
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.delete-project-button svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
 }
 
 .btn-danger:disabled {
@@ -833,7 +855,7 @@ input:focus-visible {
     inset: 0;
     display: grid;
     place-items: center;
-    background: rgb(250 246 240 / 78%);
+    background: rgb(248 246 242 / 78%);
     color: var(--text-primary);
 }
 

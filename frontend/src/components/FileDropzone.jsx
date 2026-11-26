@@ -4,9 +4,9 @@ import "../styles/dropzone.css";
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const FILE_TYPES = {
     musicxml: {
-        accept: ".musicxml,.xml",
-        extensions: [".musicxml", ".xml"],
-        description: "MusicXML (.musicxml or .xml)",
+        accept: ".musicxml,.xml,.mxl",
+        extensions: [".musicxml", ".xml", ".mxl"],
+        description: "MusicXML (.musicxml, .xml or .mxl)",
     },
     omr: {
         accept: ".pdf,.png,.jpg,.jpeg",

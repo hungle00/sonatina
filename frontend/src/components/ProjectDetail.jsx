@@ -42,7 +42,15 @@ export default function ProjectDetail({
                         disabled={isDeletingProject}
                         onClick={onDelete}
                     >
-                        <span aria-hidden="true">⌫</span>
+                        <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                        >
+                            <path d="M4 7h16" />
+                            <path d="M10 11v6M14 11v6" />
+                            <path d="m6 7 1 13h10l1-13M9 7V4h6v3" />
+                        </svg>
                         {isDeletingProject ? (
                             <LoadingSpinner label="Deleting..." />
                         ) : (
